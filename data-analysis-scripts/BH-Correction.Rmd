@@ -1,0 +1,54 @@
+---
+title: "BH-Correction"
+output: html_document
+date: "2026-04-24"
+---
+
+# Benjamini–Hochberg procedure to control the false discovery rate
+
+
+```{r BH}
+pvals <- c(
+  # Bug detection
+  bug_exercise = 0.398,
+  bug_ai = 1.61e-06,
+
+  # Accuracy
+  acc_exercise = 0.0014,
+  acc_ai = 0.742,
+  acc_ex_ai = 0.096,
+  acc_ex_seq = 0.009, #exploratory
+
+  # Completeness
+  comp_exercise = 0.2617,
+  comp_ai = 0.0386,
+
+  # Conciseness
+  conc_exercise = 0.01005,
+  conc_ai = 0.00237,
+
+  # Readability
+  read_exercise = 0.2051,
+  read_ai = 0.1679,
+  read_ex_ai = 0.1211,
+
+  # Time
+  time_exercise = 0.0006,
+  time_ai = 0.2366
+)
+
+pvals_bh <- p.adjust(pvals, method = "BH")
+
+results <- data.frame(
+  test = names(pvals),
+  p_raw = pvals,
+  p_bh = pvals_bh,
+  significant_0.05 = pvals_bh < 0.05
+)
+
+results[order(results$p_bh), ]
+
+
+```
+
+
