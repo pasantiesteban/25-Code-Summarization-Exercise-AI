@@ -4,6 +4,11 @@ output: html_document
 date: "2025-1-29"
 ---
 
+## Introduction
+
+In this file, you find part of our results for research question 1 and 2 (specifically describing our code summary accuracy is affected by our treatments -- AI and exercise). We start this file with loading data (the same as all other files) and then delve into our main findings. Readers interested in verifying the main result in RQ1 should search for the string "Research Question 1". Readers interested in verifying the main result in RQ2 should search for the string "Research Question 2". 
+
+
 ## Packages
 
 ```{r}
@@ -25,17 +30,17 @@ library(performance)
 #If you get an error, you likely need to install the packages using the "install.package('insert-package-name-here')" command
 ```
 
-
 ## Notebook configurable settings
 
+We name of the directory write output to and we make an overall output directory (model summaries, stats, etc. will all go here) (model summaries, stats, etc. will all go here)
 ```{r}
 # name the directories to read data from and write output to
 input_version = 2
-output_version = 'programming'
+output_version = 'programming-v2'
 
 ```
 
-make an overall output directory (model summaries, stats, etc. will all go here)
+
 ```{r}
 
 outputdir = sprintf("%s/../candidate-models/regression-models-%s",getwd(), output_version)
@@ -43,17 +48,20 @@ outputdir = sprintf("%s/../candidate-models/regression-models-%s",getwd(), outpu
 ```
 
 ## Loading Data
+For consistency, we output the number of rows in our data which represent trials or items -- each row represents an instance where a participant answered a stimulus question.
 
 ```{r}
 input_file = sprintf("%s/../preprocessed-data/full-data-version-%d/programming-full-data.csv", getwd(), input_version)
 data <- read.csv(input_file)
 
-#data
+nrow(data)
 
 ```
 
+## Data management
 
-Computing the IPAQ score and adding it as a column to the data
+In this step, we want to calculate each participant's IPAQ score (informally, this represents the participants fitness level). We will be considering this as a candidate fixed effect in our model later.
+
 ```{r Nans}
 
 # Helper to force numeric and turn NAs/blanks into 0
@@ -126,58 +134,42 @@ data$ipaq_category[
 # vigorous_met, moderate_met, walking_met, ipa_total_met, ipaq_category
 
 # Optional quick checks:
-table(data$ipaq_category)
-summary(data$ipa_total_met)
+#table(data$ipaq_category)
+#summary(data$ipa_total_met)
 
 ```
 
+## Selecting data
 
+In this step, we are removoe trials/data points where the participant reports not reading the AI when in the AI treatment group. The represents participants who are not following instructions
 
-### Data filtering
-
-We are remvoing trails where the participant did not read the AI when in the AI group and the participants in the self-video format
 ```{r}
-#df <- subset(data, zoom_self != "self")
-df <- subset(data, read_ai != "No")
+df <- data[data$read_ai != "No",]
 ```
-
-
 
 ### Data Distribution
 
+For consisteny, we showw the average scores in summary qualities.
 
-Identifying the mean correctness score
 ```{r}
 mean_C <- mean((df$completeness_both))
 mean_CS <- mean((df$conciseness_both))
 mean_R <- mean((df$readability_both))
 mean_A <- mean((df$accuracy_both))
-mean_overall <- mean((df$correctness_score_overall))
 print(mean_C)
 print(mean_CS)
 print(mean_R)
 print(mean_A)
-print(mean_overall)
-```
-Participant count
-
-```{r}
-#Make sure you have n=47 participants 
-
-
-
-id <- unique(data$part_id)
-id #all unique IDs
-length(id) #number of participants
 ```
 
 
-## Select independent variables 
+## Mixed Effects Regression Analysis
 
+### Specify Candidate Fixed Effects 
 
+In this step, we first define the set of candidate fixed-effect terms to consider in the mixed-effects regression models. The core predictors (`exercise`, `AI`, and `sequence number`) are included in every model because they represent the primary experimental manipulations and account for trial order (i.e., potential learning or fatigue effects). 
 
-## Specify candidate predictor structures for mixed model formulas
-
+Additional covariates and motivated interactions are then considered as optional terms during model comparison. These include `project_name` (controls for differences in difficulty across programming tasks), `ipaq_category` (accounts for differences in participants' physical activity levels), `occupation` (controls for variation associated with participants' professional background.), and `zoom_self` (which indicates whether participants completed the session by self-recording or under live supervision via Zoom).
 
 ```{r eval=FALSE}
 
@@ -185,22 +177,19 @@ length(id) #number of participants
 core_mains <- c("exercise", "ai", "seq_num")
 
 # covariates
-optional_mains <- c("project_name", "ipaq_category", "occupation")
+optional_mains <- c("project_name", "ipaq_category", "occupation", "zoom_self")
 
 # Optional interactions
 candidate_interactions <- c(
   "exercise * ai",
   "exercise * ipaq_category",
-  # "ai * ipaq_category"       
-  "ai * seq_num",
   "exercise * seq_num" # learning-curve moderation
-  #"ai * has_bug",
-  #"exercise * has_bug"
 )
 ```
 
 
-## Consider possible fixed effects structure
+
+In this step, we now generate a plausible fixed effects structures given that we have 3 core fixed effects 
 
 ```{r eval=FALSE}
 make_fixed_forms <- function(core_mains, optional_mains, candidate_interactions) {
@@ -273,11 +262,15 @@ make_fixed_forms <- function(core_mains, optional_mains, candidate_interactions)
 
 fixed_forms <- make_fixed_forms(core_mains, optional_mains, candidate_interactions)
 fixed_effects <- fixed_forms
-fixed_effects
+#fixed_effects
 ```
 
+### Specify candidate random effect structures for mixed model formulas
 
-## Consider random effects structure
+In this step, we next define a set of candidate random-effects structures for the mixed-effects regression models. These models account for the repeated-measures nature of the experiment by allowing observations from the same participant and programming task to be correlated. 
+
+We consider models with random intercepts for participants (`1 | part_id`) and programming tasks (`1 | stim_src_id`), as well as models that allow the effects of AI (`ai`) and exercise (`exercise`) to vary across participants through random slopes.
+To select an appropriate random-effects structure, we fit each candidate model using the core fixed effects (`exercise`, `ai`, and `seq_num`) and compare model fit using the Akaike Information Criterion (AIC).  BIC is also reported for transparency.
 
 ```{r eval=FALSE}
 random_structures <- c(
@@ -286,19 +279,19 @@ random_structures <- c(
   R0  = "(1 | part_id) + (1 | stim_src_id)",                 # intercepts only
   R1  = "(1 + ai | part_id) + (1 | stim_src_id)",            # AI slope
   R2  = "(1 + exercise | part_id) + (1 | stim_src_id)",      # exercise slope
-  R3  = "(1 + ai + exercise | part_id) + (1 | stim_src_id)" # both slopes (correlated)
-  #R3u = "(1 + ai + exercise || part_id) + (1 | stim_src_id)" # both slopes, no corr
+  R3  = "(1 + ai + exercise | part_id) + (1 | stim_src_id)", # both slopes (correlated)
+  R3u = "(1 + ai + exercise || part_id) + (1 | stim_src_id)" # both slopes, no corr
 )
 ```
 
-
+Checking what random effect model is best given our core fixed effects and DV via model criteria
 
 ```{r eval=FALSE}
 
 
 ## 2. Main fixed-effects part of the model
 ## We could consider it for all the DVs
-fixed_main <- "factor(conciseness_both) ~ exercise + ai + seq_num"
+fixed_main <- "factor(completeness_both) ~ exercise + ai + seq_num"
 
 
 ## 4. Helper that fits all random structures and catches errors
@@ -359,20 +352,17 @@ best_model <- m_rand_ok[[best_by_aic]]
 
 ```
 
-We freeze random structure to: (1 | part_id) for the accuracy model
-We freeze random structure to: (1 | part_id) + (1 | stim_src_id) for completeness model (we do not choose the AIC preffered structure since Intercept–AI slope correlation = –1)
-We freeze random structure to: (1 | part_id) for the readability model
-We freeze random structure to: (1 | part_id) for the consicness model
-
+We freeze random structure to: (1 \| part_id) for the accuracy model.
+We freeze random structure to: (1 \| part_id) + (1 \| stim_src_id) for completeness model (we do not choose the AIC preffered structure since Intercept–AI slope correlation = –1).
+We freeze random structure to: (1 \| part_id) for the readability model.
+We freeze random structure to: (1 \| part_id) for the conciseness model.
 
 ```{r eval=FALSE}
 
-random_exprs = "(1 | part_id)"                        #for accuracy model, readability model, consiceness model
+#random_exprs = "(1 | part_id)"                        #for accuracy model, readability model, conciseness model
 random_exprs = "(1 | part_id) + (1 | stim_src_id)"    #for completeness
   
 ```
-
-
 
 Now, we combine the response variable, fixed effects, and random effects together to generate our candidate model structures.
 
@@ -383,9 +373,9 @@ for (fe in fixed_effects) {
   for (re in random_exprs) {
     f = ""
     if (fe == "") {
-      f = sprintf("factor(conciseness_both) ~ %s", re)
+      f = sprintf("factor(completeness_both) ~ %s", re)
     } else {
-      f = sprintf("factor(conciseness_both) ~ %s + %s", fe, re)
+      f = sprintf("factor(completeness_both) ~ %s + %s", fe, re)
     }
     loglinear_formulae = append(loglinear_formulae, f)
   }
@@ -394,7 +384,6 @@ for (fe in fixed_effects) {
 print(length(loglinear_formulae))
 
 ```
-
 
 ### Model fitting (\~2 minutes)
 
@@ -406,7 +395,7 @@ We also store BIC (an alternative model selection criterion) in addition to AIC 
 if (TRUE) {
   # make an output directory for the output of all the candidate linear models
   logtime_outputdir = 
-    sprintf("%s/conciseness_both_score_model_summaries_only_frozen_re", outputdir)
+    sprintf("%s/completeness_both_score_model_summaries_only_7_1_26", outputdir)
   mkdir(logtime_outputdir)
   
   # make an output file for the AIC and BIC of each model
@@ -466,119 +455,54 @@ if (TRUE) {
 }
 ```
 
-
 # Model selection
+
+# Research Question 1 and Research Question 2
+
+In this step, we report our findings for the effects on the four summary quality attributes by AI and exercise. 
+
+In addition, we report (R^2) values as they are reported in the paper
+
+To quantify the overall explanatory power of the mixed-effects model, we report both the marginal and conditional (R^2) values. In mixed-effects models, a single (R^2) is not sufficient because variance is explained by both the fixed effects (the experimental predictors) and the random effects (differences among participants and stimuli). The marginal (R^2) represents the proportion of variance explained by the fixed effects alone, whereas the conditional (R^2) represents the proportion of variance explained by the full model, including both fixed and random effects. Reporting both measures provides a more complete assessment of model fit and the relative contributions of the experimental manipulations and the hierarchical structure of the data.
+
 ## Accuracy Category in Summary
 
 ```{r}
 # read in the AIC/BIC data
-fin = sprintf("%s/accuracy_both_score_model_summaries_only_frozen_re/metrics.csv", outputdir)
+fin = sprintf("%s/accuracy_both_score_model_summaries_only_7_1_26/metrics.csv", outputdir)
 log_time_models_da = read_csv(fin)
 ```
+
 ```{r}
-head(log_time_models_da[order(log_time_models_da$AIC),], n = 10)
-head(log_time_models_da[order(log_time_models_da$BIC),], n = 10)
+head(log_time_models_da[order(log_time_models_da$AIC),], n = 3)
+head(log_time_models_da[order(log_time_models_da$BIC),], n = 3)
 ```
-AIC and BIC disagree on the best model fit so we use an anova to determine best one
+
+Because AIC and BIC identify different preferred models, we perform a likelihood ratio test (LRT) to compare the competing nested models. This serves as an additional model comparison criterion for resolving the disagreement between the information criteria and selecting the model to carry forward.
 
 ```{r}
 fA = log_time_models_da[order(log_time_models_da$AIC),]$formula[[1]]
-#cat(fA)
 m0 = clmm(fA, data=df)
 
 fB = log_time_models_da[order(log_time_models_da$BIC),]$formula[[1]]
-#cat(fB)
 m1 =  clmm(fB, data=df)
 
 
 anova(m0,m1)
 ```
 
-
-
-m0 is preferred by anova : factor(accuracy_both) ~ exercise + ai + seq_num + project_name + occupation + exercise:ai + exercise:seq_num + (1 | part_id)
-
-We are also curious about the complexity metrics so we check for these by assessing if adding them improves model fit:
-```{r}
-df$halstead_z <- scale(df$halstead_volume) #we need to rescale it
-f_hal =  factor(accuracy_both) ~ exercise + ai + seq_num + project_name + occupation + exercise:ai + exercise:seq_num + halstead_z + (1 | part_id)
-m_hal = clmm(f_hal, data=df)
-
-anova(m0, m_hal)
-
-#summary(m_hal)
-
-```
-Adding the halstead_z makes the model fit better p = 0.03736 *
-
-
+The likelihood ratio test did find a significant improvement in fit for Model m0 over Model m1 (p < 0.01). We therefore selected Model m0 for subsequent analyses. 
 
 ```{r}
-df$cyclomatic_compl_z <- scale(df$cyclomatic_compl) #we need to rescale it
-f_cyc =  factor(accuracy_both) ~ exercise + ai + seq_num + project_name + occupation + exercise:ai + exercise:seq_num + cyclomatic_compl_z + (1 | part_id)
-m_cyc = clmm(f_cyc, data=df)
 
-anova(m0, m_cyc)
+summary(m0)
+r2(m0)
 ```
 
-Adding the cyclomatic_compl_z DOES NOT make the model fit better p = 0.5271
+exerciseTrue β = -3.209, p = 0.0013 \*\* (Meaning - Participants in the exercise condition were much less likely to achieve higher accuracy ratings than those in the non-exercise condition.
 
 
-
-So now we can look at the chosen model in depth: factor(accuracy_both) ~ exercise + ai + seq_num + project_name + occupation + exercise:ai + exercise:seq_num + halstead_z + (1 | part_id)
-
-```{r}
-summary(m_hal)
-```
-
-exerciseTrue  β = -2.669, p = 0.0014 **
-(Meaning - Participants in the exercise condition were much less likely to achieve higher accuracy ratings than those in the non-exercise condition.
-
-aiTrue  β = 0.153, p = 0.742  (ns)
-(Meaning - AI assistance did not significantly change the odds of higher accuracy, on average.)
-
-seq_num  β = -0.369, p = 0.0076 **
-(Meaning - As participants progressed through trials, accuracy decreased.)
-
-project_name β = -0.617, p = 0.032 *
-(Meaning - Accuracy was significantly lower on the spring-ai-alibaba project than on the reference project.)
-
-
-occupation β = 2.984, p = 0.038 *
-(Meaning - Participants in the “Other” occupation category had dramatically higher accuracy than the reference occupation group.)
-
-
-exercise X AI β = 1.204, p = 0.096  (marginal)
-(meaning - Exercise alone hurts accuracy (strongly negative, AI alone does nothing, But AI partially offsets the harm of exercise)
-
-
-exercise X Seq_num β = 0.515, p = 0.009 **
-(meaning- Without exercise: accuracy declines across trials With exercise: that decline is significantly reduced or even reversed)
-
-Under the non-exercise condition, accuracy declined over time; under the exercise condition, this decline was slower.
-
-
-halstead_z 2.235  0.02544 * 
-(meaning- as halstead score increased, more likely to be correct)
-
-```{r}
-#df_ai <- subset(df, ai == "True")
-#df_ai$ai3 <- case_when(
-#    df_ai$tp_tn %in% c("TP","TN") ~ "ai_correct",
-#    df_ai$tp_tn == "FN" ~ "ai_wrong",
-#    df_ai$tp_tn == "FP" ~ "ai_wrong"
-#)
-#df_ai
-
-
-#f_ai =  factor(accuracy_both) ~ exercise + ai3 + seq_num + (1 | part_id)
-#m_ai = clmm(f_ai, data=df_ai)
-#summary(m_ai)
-
-
-```
-
-
+exercise X Seq_num β = 0.515, p = 0.00853 \*\* (meaning- Without exercise: accuracy declines across trials With exercise: that decline is significantly reduced or even reversed)
 
 
 
@@ -586,90 +510,51 @@ halstead_z 2.235  0.02544 *
 
 ```{r}
 # read in the AIC/BIC data
-fin = sprintf("%s/completeness_both_score_model_summaries_only/metrics.csv", outputdir)
+fin = sprintf("%s/completeness_both_score_model_summaries_only_7_1_26/metrics.csv", outputdir)
 log_time_models_da = read_csv(fin)
 ```
 
 ```{r}
-head(log_time_models_da[order(log_time_models_da$AIC),], n = 10)
-head(log_time_models_da[order(log_time_models_da$BIC),], n = 10)
+head(log_time_models_da[order(log_time_models_da$AIC),], n = 3)
+head(log_time_models_da[order(log_time_models_da$BIC),], n = 3)
 ```
-AIC and BIC agree on the best model fit : factor(completeness_both) ~ exercise + ai + seq_num + (1 | part_id) + (1 | stim_src_id)
+
+Because AIC and BIC identify different preferred models, we perform a likelihood ratio test (LRT) to compare the competing nested models. This serves as an additional model comparison criterion for resolving the disagreement between the information criteria and selecting the model to carry forward.
 
 ```{r}
-fA = log_time_models_da[order(log_time_models_da$AIC),]$formula[[2]]
-#cat(fA)
+fA = log_time_models_da[order(log_time_models_da$AIC),]$formula[[1]]
 m0 = clmm(fA, data=df)
 
+fB = log_time_models_da[order(log_time_models_da$BIC),]$formula[[1]]
+m1 =  clmm(fB, data=df)
+
+
+anova(m0,m1)
 ```
 
-
-
-We are intested in assessing complexity metrics
-
-```{r}
-df$halstead_z <- scale(df$halstead_volume) #we need to rescale it
-f_hal =  factor(completeness_both) ~ exercise + ai + seq_num + halstead_z + (1 | part_id) + (1 | stim_src_id) 
-m_hal = clmm(f_hal, data=df)
-
-anova(m0, m_hal)
-```
-Adding the halstead_z DOES NOT make the model fit better p = 0.3819
-
-```{r}
-df$cyclomatic_compl_z <- scale(df$cyclomatic_compl) #we need to rescale it
-f_cyc =  factor(completeness_both) ~ exercise + ai + seq_num + cyclomatic_compl_z + (1 | part_id) + (1 | stim_src_id) 
-m_cyc = clmm(f_cyc, data=df)
-
-anova(m0, m_cyc)
-```
-Adding the cyclomatic_compl_z DOES NOT make the model fit better p = 0.6912
-
-
-
-We can now consider our model in depth: 
-
-```{r}
-summary(m0)
-
-r2(m0)
-```
-
-ai (2.069   0.0386 *)
-(ai made you more complete than without ai)
-
+The likelihood ratio test did not find a significant improvement in fit for Model m0 over Model m1 (p = 0.09). We therefore selected Model m1 for subsequent analyses. 
 
 
 ```{r}
-#df_ai <- subset(df, ai == "True")
-#df_ai$ai3 <- case_when(
-#    df_ai$tp_tn %in% c("TP","TN") ~ "ai_correct",
-#    df_ai$tp_tn == "FN" ~ "ai_wrong",
-#    df_ai$tp_tn == "FP" ~ "ai_wrong"
-#)
-#df_ai
-
-
-#f_ai =  factor(completeness_both) ~ exercise + ai3 + seq_num + (1 | part_id) + (1 | stim_src_id) 
-#m_ai = clmm(f_ai, data=df_ai)
-#summary(m_ai)
-
-
+summary(m1)
+r2(m1)
 ```
 
+ai (2.069 0.0386 \*) (ai made you more complete than without ai)
 
 ## Conciseness Category in Summary
 
 ```{r}
 # read in the AIC/BIC data
-fin = sprintf("%s/conciseness_both_score_model_summaries_only_frozen_re/metrics.csv", outputdir)
+fin = sprintf("%s/conciseness_both_score_model_summaries_only_6_29_26/metrics.csv", outputdir)
 log_time_models_da = read_csv(fin)
 
 
-head(log_time_models_da[order(log_time_models_da$AIC),], n = 10)
-head(log_time_models_da[order(log_time_models_da$BIC),], n = 10)
+head(log_time_models_da[order(log_time_models_da$AIC),], n = 3)
+head(log_time_models_da[order(log_time_models_da$BIC),], n = 3)
 ```
-AIC and BIC disagree on the best model fit so we use an anova to determine best one
+
+Because AIC and BIC identify different preferred models, we perform a likelihood ratio test (LRT) to compare the competing nested models. This serves as an additional model comparison criterion for resolving the disagreement between the information criteria and selecting the model to carry forward.
 
 ```{r}
 fA = log_time_models_da[order(log_time_models_da$AIC),]$formula[[1]]
@@ -684,57 +569,30 @@ m1 =  clmm(fB, data=df)
 anova(m0,m1)
 ```
 
-Model favor m0 : factor(conciseness_both) ~ exercise + ai + seq_num + project_name + occupation + (1 | part_id)
+The likelihood ratio test did find a significant improvement in fit for Model m0 over Model m1 (p < 0.03). We therefore selected Model m0 for subsequent analyses. 
 
-
-
-We are intested in assessing complexity metrics
-
-```{r}
-df$halstead_z <- scale(df$halstead_volume) #we need to rescale it
-f_hal =  factor(conciseness_both) ~ exercise + ai + seq_num + project_name + occupation + halstead_z + (1 | part_id)
-m_hal = clmm(f_hal, data=df)
-
-anova(m0, m_hal)
-```
-Adding the halstead_z DOES NOT make the model fit better p = 0.6659
-
-```{r}
-df$cyclomatic_compl_z <- scale(df$cyclomatic_compl) #we need to rescale it
-f_cyc =  factor(conciseness_both) ~ exercise + ai + seq_num + project_name + occupation + cyclomatic_compl_z + (1 | part_id) 
-m_cyc = clmm(f_cyc, data=df)
-
-anova(m0, m_cyc)
-```
-Adding the cyclomatic_compl_z DOES NOT make the model fit better p = 0.5182
-
-
-
-We can now consider our model in depth: 
 
 ```{r}
 summary(m0)
 r2(m0)
 ```
 
-exercise (-2.574, 0.01005 * ) less concise
-ai (3.039  0.00237 **) more concise
-project name (-2.000  0.04545 * ) spring-ai-alibaba project are less consice
-
-
+exercise (-2.574, 0.01005 \* ) less concise 
+ai (3.039 0.00237 \*\*) more concise 
 
 ## Readability Category in Summary
 
 ```{r}
 # read in the AIC/BIC data
-fin = sprintf("%s/readability_both_score_model_summaries_only_frozen_re/metrics.csv", outputdir)
+fin = sprintf("%s/readability_both_score_model_summaries_only_7_1_26/metrics.csv", outputdir)
 log_time_models_da = read_csv(fin)
 
 
-head(log_time_models_da[order(log_time_models_da$AIC),], n = 10)
-head(log_time_models_da[order(log_time_models_da$BIC),], n = 10)
+head(log_time_models_da[order(log_time_models_da$AIC),], n = 3)
+head(log_time_models_da[order(log_time_models_da$BIC),], n = 3)
 ```
-AIC and BIC disagree on the best model fit so we use an anova to determine best one
+
+Because AIC and BIC identify different preferred models, we perform a likelihood ratio test (LRT) to compare the competing nested models. This serves as an additional model comparison criterion for resolving the disagreement between the information criteria and selecting the model to carry forward.
 
 ```{r}
 fA = log_time_models_da[order(log_time_models_da$AIC),]$formula[[1]]
@@ -748,34 +606,7 @@ m1 =  clmm(fB, data=df)
 
 anova(m0,m1)
 ```
-
-Model favor m0 : factor(readability_both) ~ exercise + ai + seq_num + project_name + exercise:ai + ai:seq_num + (1 | part_id)
-
-
-
-We are intested in assessing complexity metrics
-
-```{r}
-df$halstead_z <- scale(df$halstead_volume) #we need to rescale it
-f_hal =  factor(readability_both) ~ exercise + ai + seq_num + project_name + exercise:ai + ai:seq_num + halstead_z+ (1 | part_id)
-m_hal = clmm(f_hal, data=df)
-
-anova(m0, m_hal)
-```
-Adding the halstead_z DOES NOT make the model fit better p =  0.07401 .(looks like possible trend though)
-
-```{r}
-df$cyclomatic_compl_z <- scale(df$cyclomatic_compl) #we need to rescale it
-f_cyc =  factor(readability_both) ~ exercise + ai + seq_num + project_name + exercise:ai + ai:seq_num + cyclomatic_compl_z + (1 | part_id) 
-m_cyc = clmm(f_cyc, data=df)
-
-anova(m0, m_cyc)
-```
-Adding the cyclomatic_compl_z DOES NOT make the model fit better p = 0.6592
-
-
-
-We can now consider our model in depth: 
+The likelihood ratio test did find a significant improvement in fit for Model m0 over Model m1 (p < 0.03). We therefore selected Model m0 for subsequent analyses. 
 
 ```{r}
 summary(m0)
@@ -783,6 +614,7 @@ r2(m0)
 ```
 
 
-project name (-2.187   0.0287 *) spring-ai-alibaba project are less readable
+However, being in the exercise or the ai condition does not improve readability.
+
 
 

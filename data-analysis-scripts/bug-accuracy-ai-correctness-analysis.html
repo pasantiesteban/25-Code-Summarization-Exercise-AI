@@ -355,6 +355,14 @@ assess AI correctness impact)</h1>
 </div>
 
 
+<div id="introduction" class="section level2">
+<h2>Introduction</h2>
+<p>In this file, you find part of our results for research question 3 .
+We start this file with loading data (the same as all other files) and
+then delve into our main findings. Readers interested in verifying the
+main result in RQ3 should search for the string “Research Question
+3”.</p>
+</div>
 <div id="packages" class="section level2">
 <h2>Packages</h2>
 <pre class="r"><code># import packages
@@ -393,24 +401,31 @@ library(ggplot2)
 </div>
 <div id="notebook-configurable-settings" class="section level2">
 <h2>Notebook configurable settings</h2>
+<p>We name of the directory write output to and we make an overall
+output directory (model summaries, stats, etc. will all go here) (model
+summaries, stats, etc. will all go here</p>
 <pre class="r"><code># name the directories to read data from and write output to
 input_version = 2
-output_version = &#39;programming&#39;</code></pre>
-<p>make an overall output directory (model summaries, stats, etc. will
-all go here)</p>
+output_version = &#39;programming-v2&#39;</code></pre>
 <pre class="r"><code>outputdir = sprintf(&quot;%s/../candidate-models/regression-models-%s&quot;,getwd(), output_version)
 #mkdir(outputdir)</code></pre>
 </div>
 <div id="loading-data" class="section level2">
 <h2>Loading Data</h2>
+<p>For consistency, we output the number of rows in our data which
+represent trials or items – each row represents an instance where a
+participant answered a stimulus question.</p>
 <pre class="r"><code>input_file = sprintf(&quot;%s/../preprocessed-data/full-data-version-%d/programming-full-data.csv&quot;, getwd(), input_version)
 data &lt;- read.csv(input_file)
 
-#data</code></pre>
+nrow(data)</code></pre>
+<pre><code>## [1] 260</code></pre>
 </div>
 <div id="data-management" class="section level2">
 <h2>Data management</h2>
-<p>Computing the IPAQ score and adding it as a column to the data</p>
+<p>In this step, we want to calculate each participant’s IPAQ score
+(informally, this represents the participants fitness level). We will be
+considering this as a candidate fixed effect in our model later.</p>
 <pre class="r"><code># Helper to force numeric and turn NAs/blanks into 0
 nz &lt;- function(x) {
   x &lt;- suppressWarnings(as.numeric(x))
@@ -481,133 +496,75 @@ data$ipaq_category[
 # vigorous_met, moderate_met, walking_met, ipa_total_met, ipaq_category
 
 # Optional quick checks:
-table(data$ipaq_category)</code></pre>
-<pre><code>## 
-##     High      Low Moderate 
-##      127        9      124</code></pre>
-<pre class="r"><code>summary(data$ipa_total_met)</code></pre>
-<pre><code>##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-##       0    1182    2213    2611    3320    9078</code></pre>
+#table(data$ipaq_category)
+#summary(data$ipa_total_met)</code></pre>
 </div>
-<div id="data-filtering" class="section level1">
-<h1>Data filtering</h1>
-<p>We are remvoing trails where the participant did not read the AI when
-in the AI group and the participants in the self-video format</p>
+<div id="selecting-data" class="section level2">
+<h2>Selecting data</h2>
+<p>We are interested in the specific effect of AI on bug detection
+accuracy. Therefore, we are removoe trials/data points where the
+participant reports not reading the AI when in the AI treatment
+group</p>
 <pre class="r"><code>#df &lt;- subset(data, zoom_self != &quot;self&quot;)
-df &lt;- subset(data, read_ai != &quot;No&quot;)</code></pre>
-<div id="only-looking-at-ai-only" class="section level2">
-<h2>Only looking at (AI-ONLY)</h2>
+df &lt;- data[data$read_ai != &quot;No&quot;,]
+
+nrow(df)</code></pre>
+<pre><code>## [1] 257</code></pre>
+<p>In this step, we make a column that encodes correctness to binary
+outcomes (i.e., correct = 1 and inccorect = 0)</p>
 <pre class="r"><code>df$bug_found_num &lt;- ifelse(df$correctly_identifies_bug_scorer_2 == &quot;Y&quot;, 1,
-                            ifelse(df$correctly_identifies_bug_scorer_2 == &quot;N&quot;, 0, NA))
+                            ifelse(df$correctly_identifies_bug_scorer_2 == &quot;N&quot;, 0, NA))</code></pre>
+<p>In this next step, because we are interested in assessing the effects
+of AI only, we select datapoints in the AI treatment group. We also add
+a column <code>ai3</code> that represents the different types of AI
+presented to the participants: correct AI reports of a bug (true
+positive, true negative) and incorrect AI report of a bug (false
+poisitve and false negative).</p>
+<p>We want to isolate our investigate to answer RQ3, how does the
+correctness of AI affect bug finding.</p>
+<pre class="r"><code>df_ai &lt;- subset(df, ai == &quot;True&quot;)
 
-
-df_ai &lt;- subset(df, ai == &quot;True&quot;)</code></pre>
-<p>We consider when AI is right (true positive, true negative) and wrong
-(false poisitve and false negative)</p>
-<pre class="r"><code>df_ai$ai3 &lt;- case_when(
+df_ai$ai3 &lt;- case_when(
     df_ai$tp_tn %in% c(&quot;TP&quot;,&quot;TN&quot;) ~ &quot;ai_correct&quot;,
     df_ai$tp_tn == &quot;FN&quot; ~ &quot;ai_wrong&quot;,
     df_ai$tp_tn == &quot;FP&quot; ~ &quot;ai_wrong&quot;
-)
-
-
-table(df_ai$ai3)</code></pre>
-<pre><code>## 
-## ai_correct   ai_wrong 
-##         67         59</code></pre>
-<p>check participant count</p>
-<pre class="r"><code>#Make sure you have n=46 participants 
-
-
-
-id &lt;- unique(df_ai$part_id)
-id #all unique IDs</code></pre>
-<pre><code>##  [1] &quot;AEL5&quot; &quot;AHF7&quot; &quot;BDT2&quot; &quot;BKT6&quot; &quot;BUE6&quot; &quot;ESA6&quot; &quot;BOU5&quot; &quot;ZHJ3&quot; &quot;FJL2&quot; &quot;YCL6&quot;
-## [11] &quot;PXF2&quot; &quot;VPF2&quot; &quot;XMW5&quot; &quot;KCL4&quot; &quot;LCV8&quot; &quot;HSE4&quot; &quot;MKW3&quot; &quot;QQR4&quot; &quot;EFZ0&quot; &quot;CNT3&quot;
-## [21] &quot;UBX0&quot; &quot;EHN4&quot; &quot;EQW5&quot; &quot;QYT4&quot; &quot;DPW1&quot; &quot;LOI9&quot; &quot;BFN0&quot; &quot;UYV2&quot; &quot;IVX7&quot; &quot;AMF1&quot;
-## [31] &quot;REH7&quot; &quot;YJF3&quot; &quot;HQZ8&quot; &quot;YGM8&quot; &quot;CVC3&quot; &quot;LBE8&quot; &quot;KGI1&quot; &quot;FIG6&quot; &quot;WOJ7&quot; &quot;GEQ3&quot;
-## [41] &quot;HDQ5&quot; &quot;GCS4&quot; &quot;LKX3&quot; &quot;ESQ3&quot; &quot;PNX3&quot; &quot;EXB3&quot;</code></pre>
-<pre class="r"><code>length(id) #number of participants</code></pre>
-<pre><code>## [1] 46</code></pre>
+)</code></pre>
 </div>
-<div id="select-independent-variables" class="section level2">
-<h2>Select independent variables</h2>
-</div>
-<div id="specify-candidate-predictor-structures-for-mixed-model-formulas" class="section level2">
-<h2>Specify candidate predictor structures for mixed model formulas</h2>
+<div id="mixed-effects-regression-analysis" class="section level2">
+<h2>Mixed Effects Regression Analysis</h2>
+<div id="specify-candidate-fixed-effects" class="section level3">
+<h3>Specify Candidate Fixed Effects</h3>
+<p>In this step, we first define the set of candidate fixed-effect terms
+to consider in the mixed-effects regression models. The core predictors
+(<code>exercise</code>, <code>ai3</code>, and
+<code>sequence number</code>) are included in every model because they
+represent the primary experimental manipulations and account for trial
+order (i.e., potential learning or fatigue effects).</p>
+<p>Additional covariates and motivated interactions are then considered
+as optional terms during model comparison. These include
+<code>project_name</code> (controls for differences in difficulty across
+programming tasks), <code>ipaq_category</code> (accounts for differences
+in participants’ physical activity levels), <code>occupation</code>
+(controls for variation associated with participants’ professional
+background.), and <code>zoom_self</code> (which indicates whether
+participants completed the session by self-recording or under live
+supervision via Zoom).</p>
 <pre class="r"><code># Core Main Effects
 #These are our main experimental manipulations + learning effect (seq_num)
 core_mains &lt;- c(&quot;exercise&quot;, &quot;ai3&quot;, &quot;seq_num&quot;)
 
 # covariates
-optional_mains &lt;- c(&quot;project_name&quot;, &quot;ipaq_category&quot;, &quot;occupation&quot;)
+optional_mains &lt;- c(&quot;project_name&quot;, &quot;ipaq_category&quot;, &quot;occupation&quot;, &quot;zoom_self&quot;)
 
 # Optional interactions
 candidate_interactions &lt;- c(
   &quot;exercise * ai3&quot;,
-  &quot;exercise * ipaq_category&quot;,     #perhaps the effect of exericse on bug detection is mediated by participant&#39;s fitness level
-  &quot;ai3 * seq_num&quot;,
+  &quot;exercise * ipaq_category&quot;, #perhaps the effect of exericse on bug detection is mediated by participant&#39;s fitness level
   &quot;exercise * seq_num&quot;
   
 )</code></pre>
-</div>
-<div id="specify-candidate-random-effect-structure-for-mixed-model-forumlas" class="section level2">
-<h2>Specify candidate random effect structure for mixed model
-forumlas</h2>
-<pre class="r"><code>random_structures &lt;- c(
-  R01 = &quot;(1 | part_id)&quot;, 
-  R02 = &quot;(1 | stim_src_id)&quot;, 
-  R0  = &quot;(1 | part_id) + (1 | stim_src_id)&quot;              # intercepts only
-  #R1  = &quot;(1 + tp_tn | part_id) + (1 | stim_src_id)&quot;,            # AI slope
-  #R2  = &quot;(1 + exercise | part_id) + (1 | stim_src_id)&quot;      # exercise slope
-  #R3  = &quot;(1 + ai + exercise | part_id) + (1 | stim_src_id)&quot;, # both slopes (correlated)
-  #R3u = &quot;(1 + ai + exercise || part_id) + (1 | stim_src_id)&quot; # both slopes, no corr
-)</code></pre>
-</div>
-</div>
-<div id="determine-the-random-effect-structure" class="section level1">
-<h1>Determine the random effect structure</h1>
-<pre class="r"><code>fixed_main &lt;- &quot;bug_found_num ~ exercise + tp_tn + seq_num&quot;
-
-fit_random_structures &lt;- function(df, fixed_main, random_structures) {
-  lapply(random_structures, function(re) {
-    f &lt;- as.formula(paste(fixed_main, &quot;+&quot;, re))
-    print(f)
-    glmer(
-      f,
-      data = df_ai,
-      family = binomial,
-      control = glmerControl(optimizer = &quot;bobyqa&quot;, optCtrl = list(maxfun = 2e5))
-    )
-  })
-}
-
-m_rand &lt;- fit_random_structures(df, fixed_main, random_structures)</code></pre>
-<pre><code>## bug_found_num ~ exercise + tp_tn + seq_num + (1 | part_id)
-## &lt;environment: 0x7fc14ae01350&gt;</code></pre>
-<pre><code>## boundary (singular) fit: see help(&#39;isSingular&#39;)</code></pre>
-<pre><code>## bug_found_num ~ exercise + tp_tn + seq_num + (1 | stim_src_id)
-## &lt;environment: 0x7fc12ee1ae18&gt;
-## bug_found_num ~ exercise + tp_tn + seq_num + (1 | part_id) + 
-##     (1 | stim_src_id)
-## &lt;environment: 0x7fc14c421270&gt;</code></pre>
-<pre><code>## boundary (singular) fit: see help(&#39;isSingular&#39;)</code></pre>
-<pre class="r"><code>sapply(m_rand, AIC)</code></pre>
-<pre><code>##      R01      R02       R0 
-## 144.8432 144.4700 146.4700</code></pre>
-<pre class="r"><code>sapply(m_rand, BIC)</code></pre>
-<pre><code>##      R01      R02       R0 
-## 164.6971 164.3240 169.1603</code></pre>
-<pre class="r"><code>sapply(m_rand, isSingular)</code></pre>
-<pre><code>##   R01   R02    R0 
-##  TRUE FALSE  TRUE</code></pre>
-<p>Almost all trigger a ‘isSingular’ fit except R02. The only random
-effect that your dataset can actually support is a random intercept for
-stimulus, not for participants.</p>
-<p>We are going to keep (1 | stim_src_id) (no singular fit error and
-lowest AIC/BIC) as our fixed random structure</p>
-<div id="candidiate-fixed-effects-structures" class="section level3">
-<h3>candidiate fixed effects structures</h3>
+<p>In this step, we now generate a plausible fixed effects structures
+given that we have 3 core fixed effects</p>
 <pre class="r"><code>make_fixed_forms &lt;- function(core_mains, optional_mains, candidate_interactions) {
   fixed_forms &lt;- character(0)
   
@@ -694,8 +651,80 @@ fixed_forms &lt;- make_fixed_forms(core_mains, optional_mains, candidate_interac
 #fixed_forms[grepl(&quot;tp_tn&quot;, fixed_forms)]
 #length(fixed_forms)
 #fixed_forms</code></pre>
-<p>In this first cell, we enumerate random effect structures by taking
-all combinations of the random effects specified.</p>
+</div>
+</div>
+<div id="specify-candidate-random-effect-structure-for-mixed-model-forumlas" class="section level2">
+<h2>Specify candidate random effect structure for mixed model
+forumlas</h2>
+<p>In this step, we next define a set of candidate random-effects
+structures for the mixed-effects regression models. These models account
+for the repeated-measures nature of the experiment by allowing
+observations from the same participant and programming task to be
+correlated.</p>
+<p>We consider models with random intercepts for participants
+(<code>1 | part_id</code>) and programming tasks
+(<code>1 | stim_src_id</code>), as well as models that allow the effects
+of AI correcntess (<code>ai3</code>) and exercise
+(<code>exercise</code>) to vary across participants through random
+slopes. To select an appropriate random-effects structure, we fit each
+candidate model using the core fixed effects (<code>exercise</code>,
+<code>ai3</code>, and <code>seq_num</code>) and compare model fit using
+the Akaike Information Criterion (AIC). BIC is also reported for
+transparency.</p>
+<pre class="r"><code>random_structures &lt;- c(
+  R01 = &quot;(1 | part_id)&quot;, 
+  R02 = &quot;(1 | stim_src_id)&quot;, 
+  R0  = &quot;(1 | part_id) + (1 | stim_src_id)&quot;,              # intercepts only
+  # R1  = &quot;(1 + ai3 | part_id) + (1 | stim_src_id)&quot;,            # not enough terms for this
+  R2  = &quot;(1 + exercise | part_id) + (1 | stim_src_id)&quot;      # exercise slope
+  # R3  = &quot;(1 + ai3 + exercise | part_id) + (1 | stim_src_id)&quot;, # not enough terms for this
+  # R3u = &quot;(1 + ai3 + exercise || part_id) + (1 | stim_src_id)&quot; # not enough terms for this
+)</code></pre>
+</div>
+<div id="determine-the-random-effect-structure" class="section level1">
+<h1>Determine the random effect structure</h1>
+<pre class="r"><code>fixed_main &lt;- &quot;bug_found_num ~ exercise + ai3 + seq_num&quot;
+
+fit_random_structures &lt;- function(df, fixed_main, random_structures) {
+  lapply(random_structures, function(re) {
+    f &lt;- as.formula(paste(fixed_main, &quot;+&quot;, re))
+    print(f)
+    glmer(
+      f,
+      data = df_ai,
+      family = binomial,
+      control = glmerControl(optimizer = &quot;bobyqa&quot;, optCtrl = list(maxfun = 2e5))
+    )
+  })
+}
+
+m_rand &lt;- fit_random_structures(df, fixed_main, random_structures)</code></pre>
+<pre><code>## bug_found_num ~ exercise + ai3 + seq_num + (1 | part_id)
+## &lt;environment: 0x7fbf08f77040&gt;</code></pre>
+<pre><code>## boundary (singular) fit: see help(&#39;isSingular&#39;)</code></pre>
+<pre><code>## bug_found_num ~ exercise + ai3 + seq_num + (1 | stim_src_id)
+## &lt;environment: 0x7fbf05e04f58&gt;
+## bug_found_num ~ exercise + ai3 + seq_num + (1 | part_id) + (1 | 
+##     stim_src_id)
+## &lt;environment: 0x7fbf059b5410&gt;</code></pre>
+<pre><code>## boundary (singular) fit: see help(&#39;isSingular&#39;)</code></pre>
+<pre><code>## bug_found_num ~ exercise + ai3 + seq_num + (1 + exercise | part_id) + 
+##     (1 | stim_src_id)
+## &lt;environment: 0x7fbf05ec39b0&gt;</code></pre>
+<pre><code>## boundary (singular) fit: see help(&#39;isSingular&#39;)</code></pre>
+<pre class="r"><code>sapply(m_rand, AIC)</code></pre>
+<pre><code>##      R01      R02       R0       R2 
+## 148.8087 147.3365 149.3365 153.3365</code></pre>
+<pre class="r"><code>sapply(m_rand, BIC)</code></pre>
+<pre><code>##      R01      R02       R0       R2 
+## 162.9901 161.5179 166.3542 176.0267</code></pre>
+<pre class="r"><code>sapply(m_rand, isSingular)</code></pre>
+<pre><code>##   R01   R02    R0    R2 
+##  TRUE FALSE  TRUE  TRUE</code></pre>
+<p>R02 is the only non-singular fit, whereas every model containing a
+participant random effect is singular.</p>
+<p>Based on AIC, the selected random-effects structure includes random
+intercepts for programming task: <code>(1 | stim_src_id)</code>.</p>
 <pre class="r"><code>random_exprs = &quot;(1 | stim_src_id)&quot;</code></pre>
 <p>Now, we combine the response variable, fixed effects, and random
 effects together to generate our candidate model structures.</p>
@@ -714,7 +743,6 @@ for (fe in fixed_forms) {
 
 print(length(loglinear_formulae))</code></pre>
 <pre><code>## [1] 96</code></pre>
-</div>
 <div id="model-fitting-2-minutes" class="section level3">
 <h3>Model fitting (~2 minutes)</h3>
 <p>Here, we fit all the models. Of note, we use MLE rather than REML for
@@ -730,7 +758,7 @@ the reader is interested.</p>
 <pre class="r"><code>if (TRUE) {
   # make an output directory for the output of all the candidate linear models
   logtime_outputdir = 
-    sprintf(&quot;%s/accuracy_bug_ai3_model_summaries_frozen_re&quot;, outputdir)
+    sprintf(&quot;%s/accuracy_bug_ai3_model_summaries_7_1_26&quot;, outputdir)
   mkdir(logtime_outputdir)
   
   # make an output file for the AIC and BIC of each model
@@ -801,7 +829,7 @@ the reader is interested.</p>
 <div id="model-selection" class="section level3">
 <h3>Model selection</h3>
 <pre class="r"><code># read in the AIC/BIC data
-fin = sprintf(&quot;%s/accuracy_bug_ai3_model_summaries_frozen_re/metrics.csv&quot;, outputdir)
+fin = sprintf(&quot;%s/accuracy_bug_ai3_model_summaries_7_1_26/metrics.csv&quot;, outputdir)
 log_time_models_da = read_csv(fin)</code></pre>
 <pre><code>## Rows: 96 Columns: 3
 ## ── Column specification ────────────────────────────────────────────────────────
@@ -815,80 +843,145 @@ log_time_models_da = read_csv(fin)</code></pre>
 <pre><code>## # A tibble: 10 × 3
 ##    formula                                                             AIC   BIC
 ##    &lt;chr&gt;                                                             &lt;dbl&gt; &lt;dbl&gt;
-##  1 (bug_found_num) ~ exercise + ai3 + seq_num + project_name + ai3:…  140.  169.
-##  2 (bug_found_num) ~ exercise + ai3 + seq_num + ai3:seq_num + exerc…  141.  167.
-##  3 (bug_found_num) ~ exercise + ai3 + seq_num + project_name + ai3:…  141.  167.
-##  4 (bug_found_num) ~ exercise + ai3 + seq_num + ai3:seq_num + (1 | …  143.  165.
-##  5 (bug_found_num) ~ exercise + ai3 + seq_num + project_name + exer…  143.  177.
-##  6 (bug_found_num) ~ exercise + ai3 + seq_num + project_name + exer…  143.  165.
-##  7 (bug_found_num) ~ exercise + ai3 + seq_num + project_name + (1 |…  143.  163.
-##  8 (bug_found_num) ~ exercise + ai3 + seq_num + project_name + exer…  143.  175.
-##  9 (bug_found_num) ~ exercise + ai3 + seq_num + project_name + ipaq…  144.  178.
-## 10 (bug_found_num) ~ exercise + ai3 + seq_num + exercise:ai3 + ai3:…  144.  175.</code></pre>
+##  1 (bug_found_num) ~ exercise + ai3 + seq_num + project_name + zoom…  146.  166.
+##  2 (bug_found_num) ~ exercise + ai3 + seq_num + project_name + (1 |…  146.  163.
+##  3 (bug_found_num) ~ exercise + ai3 + seq_num + project_name + exer…  146.  166.
+##  4 (bug_found_num) ~ exercise + ai3 + seq_num + project_name + zoom…  147.  170.
+##  5 (bug_found_num) ~ exercise + ai3 + seq_num + zoom_self + (1 | st…  147.  164.
+##  6 (bug_found_num) ~ exercise + ai3 + seq_num + (1 | stim_src_id)     147.  162.
+##  7 (bug_found_num) ~ exercise + ai3 + seq_num + exercise:seq_num + …  147.  165.
+##  8 (bug_found_num) ~ exercise + ai3 + seq_num + zoom_self + exercis…  148.  168.
+##  9 (bug_found_num) ~ exercise + ai3 + seq_num + project_name + exer…  148.  168.
+## 10 (bug_found_num) ~ exercise + ai3 + seq_num + project_name + zoom…  148.  171.</code></pre>
 <pre class="r"><code>head(log_time_models_da[order(log_time_models_da$BIC),], n = 10)</code></pre>
 <pre><code>## # A tibble: 10 × 3
 ##    formula                                                             AIC   BIC
 ##    &lt;chr&gt;                                                             &lt;dbl&gt; &lt;dbl&gt;
-##  1 (bug_found_num) ~ exercise + ai3 + seq_num + (1 | stim_src_id)     144.  162.
-##  2 (bug_found_num) ~ exercise + ai3 + seq_num + project_name + (1 |…  143.  163.
-##  3 (bug_found_num) ~ exercise + ai3 + seq_num + exercise:seq_num + …  144.  164.
-##  4 (bug_found_num) ~ exercise + ai3 + seq_num + ai3:seq_num + (1 | …  143.  165.
-##  5 (bug_found_num) ~ exercise + ai3 + seq_num + project_name + exer…  143.  165.
-##  6 (bug_found_num) ~ exercise + ai3 + seq_num + ai3:seq_num + exerc…  141.  167.
-##  7 (bug_found_num) ~ exercise + ai3 + seq_num + project_name + ai3:…  141.  167.
-##  8 (bug_found_num) ~ exercise + ai3 + seq_num + project_name + ai3:…  140.  169.
-##  9 (bug_found_num) ~ exercise + ai3 + seq_num + exercise:ai3 + (1 |…  147.  170.
-## 10 (bug_found_num) ~ exercise + ai3 + seq_num + ipaq_category + (1 …  148.  171.</code></pre>
+##  1 (bug_found_num) ~ exercise + ai3 + seq_num + (1 | stim_src_id)     147.  162.
+##  2 (bug_found_num) ~ exercise + ai3 + seq_num + project_name + (1 |…  146.  163.
+##  3 (bug_found_num) ~ exercise + ai3 + seq_num + zoom_self + (1 | st…  147.  164.
+##  4 (bug_found_num) ~ exercise + ai3 + seq_num + exercise:seq_num + …  147.  165.
+##  5 (bug_found_num) ~ exercise + ai3 + seq_num + project_name + zoom…  146.  166.
+##  6 (bug_found_num) ~ exercise + ai3 + seq_num + project_name + exer…  146.  166.
+##  7 (bug_found_num) ~ exercise + ai3 + seq_num + exercise:ai3 + (1 |…  149.  166.
+##  8 (bug_found_num) ~ exercise + ai3 + seq_num + zoom_self + exercis…  148.  168.
+##  9 (bug_found_num) ~ exercise + ai3 + seq_num + project_name + exer…  148.  168.
+## 10 (bug_found_num) ~ exercise + ai3 + seq_num + zoom_self + exercis…  149.  169.</code></pre>
 <pre class="r"><code>fA = log_time_models_da[order(log_time_models_da$AIC),]$formula[[1]]
 cat(fA)</code></pre>
-<pre><code>## (bug_found_num) ~ exercise + ai3 + seq_num + project_name + ai3:seq_num + exercise:seq_num + (1 | stim_src_id)</code></pre>
+<pre><code>## (bug_found_num) ~ exercise + ai3 + seq_num + project_name + zoom_self + (1 | stim_src_id)</code></pre>
 <pre class="r"><code>fB = log_time_models_da[order(log_time_models_da$BIC),]$formula[[1]]
 cat(fB)</code></pre>
 <pre><code>## (bug_found_num) ~ exercise + ai3 + seq_num + (1 | stim_src_id)</code></pre>
-<pre class="r"><code>m0 = glmer(fA, family=binomial, data=df_ai, control = glmerControl(optimizer = &quot;bobyqa&quot;))
-summary(m0)</code></pre>
-<pre><code>## Generalized linear mixed model fit by maximum likelihood (Laplace
-##   Approximation) [glmerMod]
-##  Family: binomial  ( logit )
-## Formula: 
-## (bug_found_num) ~ exercise + ai3 + seq_num + project_name + ai3:seq_num +  
-##     exercise:seq_num + (1 | stim_src_id)
-##    Data: df_ai
-## Control: glmerControl(optimizer = &quot;bobyqa&quot;)
+<pre class="r"><code>m0 = glmer(fA, family=binomial, data=df_ai)
+#summary(m0)</code></pre>
+<pre class="r"><code>m1 =  glmer(fB, family=binomial, data=df_ai)
+#summary(m1)</code></pre>
+<p>Because AIC and BIC identify different preferred models, we perform a
+likelihood ratio test (LRT) to compare the competing nested models. This
+serves as an additional model comparison criterion for resolving the
+disagreement between the information criteria and selecting the model to
+carry forward.</p>
+<pre class="r"><code>anova(m0,m1)</code></pre>
+<pre><code>## Data: df_ai
+## Models:
+## m1: (bug_found_num) ~ exercise + ai3 + seq_num + (1 | stim_src_id)
+## m0: (bug_found_num) ~ exercise + ai3 + seq_num + project_name + zoom_self + (1 | stim_src_id)
+##    npar    AIC    BIC  logLik deviance  Chisq Df Pr(&gt;Chisq)  
+## m1    5 147.34 161.52 -68.668   137.34                       
+## m0    7 146.19 166.05 -66.098   132.19 5.1415  2    0.07648 .
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</code></pre>
+<p>The likelihood ratio test did not find a significant improvement in
+fit for Model m0 over Model m1 (p = 0.07). We therefore selected Model
+m1 for subsequent analyses.</p>
+</div>
+<div id="research-question-3-accuracy-of-finding-bug-when-ai-varies-in-accuracy" class="section level2">
+<h2>Research Question 3 (Accuracy of finding bug when AI varies in
+accuracy)</h2>
+<p>We next evaluate the statistical significance of each fixed effect
+using likelihood ratio tests. Each test compares the selected model
+against a nested model that excludes the predictor of interest.</p>
+<pre class="r"><code>fC=  (bug_found_num) ~ ai3 + seq_num +  (1 | stim_src_id)
+fD = (bug_found_num) ~ exercise + seq_num +   (1 | stim_src_id)
+fE = (bug_found_num) ~ exercise + ai3 + (1 | stim_src_id)
+
+mC = glmer(fC, family=binomial, data=df_ai)
+mD = glmer(fD, family=binomial, data=df_ai)
+mE = glmer(fE, family=binomial, data=df_ai)</code></pre>
+<pre class="r"><code>anova(m1, mC)  # Test contribution of exercise</code></pre>
+<pre><code>## Data: df_ai
+## Models:
+## mC: (bug_found_num) ~ ai3 + seq_num + (1 | stim_src_id)
+## m1: (bug_found_num) ~ exercise + ai3 + seq_num + (1 | stim_src_id)
+##    npar    AIC    BIC  logLik deviance  Chisq Df Pr(&gt;Chisq)
+## mC    4 146.06 157.41 -69.031   138.06                     
+## m1    5 147.34 161.52 -68.668   137.34 0.7245  1     0.3947</code></pre>
+<pre class="r"><code>anova(m1, mD)  # Test contribution of AI</code></pre>
+<pre><code>## Data: df_ai
+## Models:
+## mD: (bug_found_num) ~ exercise + seq_num + (1 | stim_src_id)
+## m1: (bug_found_num) ~ exercise + ai3 + seq_num + (1 | stim_src_id)
+##    npar    AIC    BIC  logLik deviance  Chisq Df Pr(&gt;Chisq)    
+## mD    4 179.07 190.41 -85.534   171.07                         
+## m1    5 147.34 161.52 -68.668   137.34 33.731  1  6.329e-09 ***
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</code></pre>
+<pre class="r"><code>anova(m1, mE)  # Test contribution of seq_num (learning effects)</code></pre>
+<pre><code>## Data: df_ai
+## Models:
+## mE: (bug_found_num) ~ exercise + ai3 + (1 | stim_src_id)
+## m1: (bug_found_num) ~ exercise + ai3 + seq_num + (1 | stim_src_id)
+##    npar    AIC    BIC  logLik deviance  Chisq Df Pr(&gt;Chisq)
+## mE    4 145.77 157.12 -68.886   137.77                     
+## m1    5 147.34 161.52 -68.668   137.34 0.4348  1     0.5096</code></pre>
+<p>In the next step, oo better interpret the significant effect of AI on
+bug-finding accuracy, we estimate the marginal mean probability of a
+correct response for each AI condition.</p>
+<pre class="r"><code>emmeans(m1, pairwise ~ ai3)</code></pre>
+<pre><code>## $emmeans
+##  ai3        emmean    SE  df asymp.LCL asymp.UCL
+##  ai_correct   1.47 0.384 Inf      0.72     2.225
+##  ai_wrong    -1.04 0.370 Inf     -1.77    -0.318
 ## 
-##      AIC      BIC   logLik deviance df.resid 
-##    147.1    169.8    -65.5    131.1      118 
+## Results are averaged over the levels of: exercise 
+## Results are given on the logit (not the response) scale. 
+## Confidence level used: 0.95 
 ## 
-## Scaled residuals: 
-##     Min      1Q  Median      3Q     Max 
-## -3.5710 -0.5557  0.2273  0.5218  1.8286 
+## $contrasts
+##  contrast              estimate    SE  df z.ratio p.value
+##  ai_correct - ai_wrong     2.51 0.524 Inf   4.797  &lt;.0001
 ## 
-## Random effects:
-##  Groups      Name        Variance Std.Dev.
-##  stim_src_id (Intercept) 0.703    0.8385  
-## Number of obs: 126, groups:  stim_src_id, 33
-## 
-## Fixed effects:
-##                               Estimate Std. Error z value Pr(&gt;|z|)
-## (Intercept)                    1.66261    1.01696   1.635    0.102
-## exerciseTrue                  -1.30397    1.15071  -1.133    0.257
-## ai3ai_wrong                   -1.49935    1.12323  -1.335    0.182
-## seq_num                        0.06683    0.23959   0.279    0.780
-## project_namespring-ai-alibaba -0.94666    0.59346  -1.595    0.111
-## ai3ai_wrong:seq_num           -0.33988    0.29714  -1.144    0.253
-## exerciseTrue:seq_num           0.45484    0.31018   1.466    0.143
-## 
-## Correlation of Fixed Effects:
-##             (Intr) exrcsT a3_wrn seq_nm prj_-- a3_w:_
-## exerciseTru -0.524                                   
-## ai3ai_wrong -0.532 -0.107                            
-## seq_num     -0.811  0.422  0.449                     
-## prjct_nms-- -0.401  0.133  0.200 -0.001              
-## a3_wrng:sq_  0.429  0.206 -0.868 -0.533 -0.048       
-## exrcsTr:sq_  0.419 -0.907  0.134 -0.406 -0.092 -0.275</code></pre>
-<pre class="r"><code>#fB= (bug_found_num) ~ exercise + AI_correct + seq_num + project_name +  has_bug + exercise:seq_num + exercise:has_bug +(1 | stim_src_id)
-m1 =  glmer(fB, family=binomial, data=df_ai)
-summary(m1)</code></pre>
+## Results are averaged over the levels of: exercise 
+## Results are given on the log odds ratio (not the response) scale.</code></pre>
+<p>Because the generalized linear mixed-effects model uses a logit link,
+the estimated marginal means are expressed as logits. We apply the
+inverse-logit transformation (<code>plogis</code>) to convert these
+values into estimated probabilities, which are more readily
+interpretable.</p>
+<pre class="r"><code>plogis(1.47)</code></pre>
+<pre><code>## [1] 0.8130574</code></pre>
+<pre class="r"><code>plogis(-1.04)</code></pre>
+<pre><code>## [1] 0.26115</code></pre>
+<p>When the AI response was correct, students were estimated to answer
+correctly with probability 0.81. When the AI response was wrong,
+students were estimated to answer correctly with probability 0.26,
+meaning they answered incorrectly with probability 0.74.</p>
+<p>In addition, we report (R^2) values as they are reported in the
+paper</p>
+<p>To quantify the overall explanatory power of the mixed-effects model,
+we report both the marginal and conditional (R^2) values. In
+mixed-effects models, a single (R^2) is not sufficient because variance
+is explained by both the fixed effects (the experimental predictors) and
+the random effects (differences among participants and stimuli). The
+marginal (R^2) represents the proportion of variance explained by the
+fixed effects alone, whereas the conditional (R^2) represents the
+proportion of variance explained by the full model, including both fixed
+and random effects. Reporting both measures provides a more complete
+assessment of model fit and the relative contributions of the
+experimental manipulations and the hierarchical structure of the
+data.</p>
+<pre class="r"><code>summary(m1)</code></pre>
 <pre><code>## Generalized linear mixed model fit by maximum likelihood (Laplace
 ##   Approximation) [glmerMod]
 ##  Family: binomial  ( logit )
@@ -921,52 +1014,11 @@ summary(m1)</code></pre>
 ## exerciseTru -0.370              
 ## ai3ai_wrong -0.170 -0.148       
 ## seq_num     -0.751  0.086 -0.242</code></pre>
-<p>Since AIC and BIC disagree on which model is better, we check via an
-ANOVA</p>
-<pre class="r"><code>anova(m0,m1)</code></pre>
-<pre><code>## Data: df_ai
-## Models:
-## m1: (bug_found_num) ~ exercise + ai3 + seq_num + (1 | stim_src_id)
-## m0: (bug_found_num) ~ exercise + ai3 + seq_num + project_name + ai3:seq_num + exercise:seq_num + (1 | stim_src_id)
-##    npar    AIC    BIC  logLik deviance  Chisq Df Pr(&gt;Chisq)  
-## m1    5 147.34 161.52 -68.668   137.34                       
-## m0    8 147.08 169.77 -65.542   131.08 6.2525  3    0.09995 .
-## ---
-## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</code></pre>
 <pre class="r"><code>r2(m1)</code></pre>
 <pre><code>## # R2 for Mixed Models
 ## 
 ##   Conditional R2: 0.413
 ##      Marginal R2: 0.288</code></pre>
-<p>m0 is not wanted, so we choose model m1</p>
-<p>exerciseTrue:has_bugTrue = –2.13222 p = .0308 When a bug is present,
-exercise greatly decreases the odds of being correct. with bugs present,
-exercise reduces correctness by ~88% relative to non-exercise. “This
-suggests that exercise may have increased trust in the AI or reduced
-careful scrutiny when actual bugs were present.”</p>
-<p>AI_correct1 = 2.4694 p = 6.5e-06 When the AI was correct,
-participants were far more likely to be correct. The human was about 12×
-more likely to be correct.</p>
-<p>project_namespring-ai-alibaba = –1.0315 p = .0443 trials from this
-specific project had lower accuracy overall.</p>
-<pre class="r"><code>emmeans(m0, pairwise ~ ai3)</code></pre>
-<pre><code>## NOTE: Results may be misleading due to involvement in interactions</code></pre>
-<pre><code>## $emmeans
-##  ai3        emmean    SE  df asymp.LCL asymp.UCL
-##  ai_correct   1.61 0.412 Inf     0.805     2.418
-##  ai_wrong    -1.13 0.384 Inf    -1.882    -0.375
-## 
-## Results are averaged over the levels of: exercise, project_name 
-## Results are given on the logit (not the response) scale. 
-## Confidence level used: 0.95 
-## 
-## $contrasts
-##  contrast              estimate    SE  df z.ratio p.value
-##  ai_correct - ai_wrong     2.74 0.568 Inf   4.824  &lt;.0001
-## 
-## Results are averaged over the levels of: exercise, project_name 
-## Results are given on the log odds ratio (not the response) scale.</code></pre>
-<p>Logit –1.02 → probability ≈ 0.27 Logit +1.45 → probability ≈ 0.81</p>
 </div>
 </div>
 

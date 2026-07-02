@@ -355,6 +355,17 @@ Attributes)</h1>
 </div>
 
 
+<div id="introduction" class="section level2">
+<h2>Introduction</h2>
+<p>In this file, you find part of our results for research question 1
+and 2 (specifically describing our code summary accuracy is affected by
+our treatments – AI and exercise). We start this file with loading data
+(the same as all other files) and then delve into our main findings.
+Readers interested in verifying the main result in RQ1 should search for
+the string “Research Question 1”. Readers interested in verifying the
+main result in RQ2 should search for the string “Research Question
+2”.</p>
+</div>
 <div id="packages" class="section level2">
 <h2>Packages</h2>
 <pre class="r"><code># import packages
@@ -392,21 +403,31 @@ library(performance)
 </div>
 <div id="notebook-configurable-settings" class="section level2">
 <h2>Notebook configurable settings</h2>
+<p>We name of the directory write output to and we make an overall
+output directory (model summaries, stats, etc. will all go here) (model
+summaries, stats, etc. will all go here)</p>
 <pre class="r"><code># name the directories to read data from and write output to
 input_version = 2
-output_version = &#39;programming&#39;</code></pre>
-<p>make an overall output directory (model summaries, stats, etc. will
-all go here)</p>
+output_version = &#39;programming-v2&#39;</code></pre>
 <pre class="r"><code>outputdir = sprintf(&quot;%s/../candidate-models/regression-models-%s&quot;,getwd(), output_version)
 #mkdir(outputdir) #only uncomment this if you don&#39;t already have an output directory</code></pre>
 </div>
 <div id="loading-data" class="section level2">
 <h2>Loading Data</h2>
+<p>For consistency, we output the number of rows in our data which
+represent trials or items – each row represents an instance where a
+participant answered a stimulus question.</p>
 <pre class="r"><code>input_file = sprintf(&quot;%s/../preprocessed-data/full-data-version-%d/programming-full-data.csv&quot;, getwd(), input_version)
 data &lt;- read.csv(input_file)
 
-#data</code></pre>
-<p>Computing the IPAQ score and adding it as a column to the data</p>
+nrow(data)</code></pre>
+<pre><code>## [1] 260</code></pre>
+</div>
+<div id="data-management" class="section level2">
+<h2>Data management</h2>
+<p>In this step, we want to calculate each participant’s IPAQ score
+(informally, this represents the participants fitness level). We will be
+considering this as a candidate fixed effect in our model later.</p>
 <pre class="r"><code># Helper to force numeric and turn NAs/blanks into 0
 nz &lt;- function(x) {
   x &lt;- suppressWarnings(as.numeric(x))
@@ -477,31 +498,23 @@ data$ipaq_category[
 # vigorous_met, moderate_met, walking_met, ipa_total_met, ipaq_category
 
 # Optional quick checks:
-table(data$ipaq_category)</code></pre>
-<pre><code>## 
-##     High      Low Moderate 
-##      127        9      124</code></pre>
-<pre class="r"><code>summary(data$ipa_total_met)</code></pre>
-<pre><code>##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-##       0    1182    2213    2611    3320    9078</code></pre>
-<div id="data-filtering" class="section level3">
-<h3>Data filtering</h3>
-<p>We are remvoing trails where the participant did not read the AI when
-in the AI group and the participants in the self-video format</p>
-<pre class="r"><code>#df &lt;- subset(data, zoom_self != &quot;self&quot;)
-df &lt;- subset(data, read_ai != &quot;No&quot;)</code></pre>
+#table(data$ipaq_category)
+#summary(data$ipa_total_met)</code></pre>
 </div>
+<div id="selecting-data" class="section level2">
+<h2>Selecting data</h2>
+<p>In this step, we are removoe trials/data points where the participant
+reports not reading the AI when in the AI treatment group. The
+represents participants who are not following instructions</p>
+<pre class="r"><code>df &lt;- data[data$read_ai != &quot;No&quot;,]</code></pre>
 <div id="data-distribution" class="section level3">
 <h3>Data Distribution</h3>
-<p>Identifying the mean correctness score</p>
+<p>For consisteny, we showw the average scores in summary qualities.</p>
 <pre class="r"><code>mean_C &lt;- mean((df$completeness_both))
 mean_CS &lt;- mean((df$conciseness_both))
 mean_R &lt;- mean((df$readability_both))
 mean_A &lt;- mean((df$accuracy_both))
-mean_overall &lt;- mean((df$correctness_score_overall))</code></pre>
-<pre><code>## Warning in mean.default((df$correctness_score_overall)): argument is not
-## numeric or logical: returning NA</code></pre>
-<pre class="r"><code>print(mean_C)</code></pre>
+print(mean_C)</code></pre>
 <pre><code>## [1] 2.692607</code></pre>
 <pre class="r"><code>print(mean_CS)</code></pre>
 <pre><code>## [1] 4.690661</code></pre>
@@ -509,48 +522,41 @@ mean_overall &lt;- mean((df$correctness_score_overall))</code></pre>
 <pre><code>## [1] 4.805447</code></pre>
 <pre class="r"><code>print(mean_A)</code></pre>
 <pre><code>## [1] 4.571984</code></pre>
-<pre class="r"><code>print(mean_overall)</code></pre>
-<pre><code>## [1] NA</code></pre>
-<p>Participant count</p>
-<pre class="r"><code>#Make sure you have n=47 participants 
-
-
-
-id &lt;- unique(data$part_id)
-id #all unique IDs</code></pre>
-<pre><code>##  [1] &quot;AEL5&quot; &quot;AHF7&quot; &quot;BDT2&quot; &quot;BKT6&quot; &quot;BUE6&quot; &quot;ESA6&quot; &quot;BOU5&quot; &quot;ZHJ3&quot; &quot;FJL2&quot; &quot;YCL6&quot;
-## [11] &quot;PXF2&quot; &quot;VPF2&quot; &quot;XMW5&quot; &quot;KCL4&quot; &quot;LCV8&quot; &quot;HSE4&quot; &quot;MKW3&quot; &quot;QQR4&quot; &quot;EFZ0&quot; &quot;CNT3&quot;
-## [21] &quot;UBX0&quot; &quot;NWJ7&quot; &quot;EHN4&quot; &quot;EQW5&quot; &quot;QYT4&quot; &quot;DPW1&quot; &quot;LOI9&quot; &quot;BFN0&quot; &quot;UYV2&quot; &quot;IVX7&quot;
-## [31] &quot;AMF1&quot; &quot;REH7&quot; &quot;YJF3&quot; &quot;HQZ8&quot; &quot;YGM8&quot; &quot;CVC3&quot; &quot;LBE8&quot; &quot;KGI1&quot; &quot;FIG6&quot; &quot;WOJ7&quot;
-## [41] &quot;GEQ3&quot; &quot;HDQ5&quot; &quot;GCS4&quot; &quot;LKX3&quot; &quot;ESQ3&quot; &quot;PNX3&quot; &quot;EXB3&quot;</code></pre>
-<pre class="r"><code>length(id) #number of participants</code></pre>
-<pre><code>## [1] 47</code></pre>
 </div>
 </div>
-<div id="select-independent-variables" class="section level2">
-<h2>Select independent variables</h2>
-</div>
-<div id="specify-candidate-predictor-structures-for-mixed-model-formulas" class="section level2">
-<h2>Specify candidate predictor structures for mixed model formulas</h2>
+<div id="mixed-effects-regression-analysis" class="section level2">
+<h2>Mixed Effects Regression Analysis</h2>
+<div id="specify-candidate-fixed-effects" class="section level3">
+<h3>Specify Candidate Fixed Effects</h3>
+<p>In this step, we first define the set of candidate fixed-effect terms
+to consider in the mixed-effects regression models. The core predictors
+(<code>exercise</code>, <code>AI</code>, and
+<code>sequence number</code>) are included in every model because they
+represent the primary experimental manipulations and account for trial
+order (i.e., potential learning or fatigue effects).</p>
+<p>Additional covariates and motivated interactions are then considered
+as optional terms during model comparison. These include
+<code>project_name</code> (controls for differences in difficulty across
+programming tasks), <code>ipaq_category</code> (accounts for differences
+in participants’ physical activity levels), <code>occupation</code>
+(controls for variation associated with participants’ professional
+background.), and <code>zoom_self</code> (which indicates whether
+participants completed the session by self-recording or under live
+supervision via Zoom).</p>
 <pre class="r"><code># Always include (core)
 core_mains &lt;- c(&quot;exercise&quot;, &quot;ai&quot;, &quot;seq_num&quot;)
 
 # covariates
-optional_mains &lt;- c(&quot;project_name&quot;, &quot;ipaq_category&quot;, &quot;occupation&quot;)
+optional_mains &lt;- c(&quot;project_name&quot;, &quot;ipaq_category&quot;, &quot;occupation&quot;, &quot;zoom_self&quot;)
 
 # Optional interactions
 candidate_interactions &lt;- c(
   &quot;exercise * ai&quot;,
   &quot;exercise * ipaq_category&quot;,
-  # &quot;ai * ipaq_category&quot;       
-  &quot;ai * seq_num&quot;,
   &quot;exercise * seq_num&quot; # learning-curve moderation
-  #&quot;ai * has_bug&quot;,
-  #&quot;exercise * has_bug&quot;
 )</code></pre>
-</div>
-<div id="consider-possible-fixed-effects-structure" class="section level2">
-<h2>Consider possible fixed effects structure</h2>
+<p>In this step, we now generate a plausible fixed effects structures
+given that we have 3 core fixed effects</p>
 <pre class="r"><code>make_fixed_forms &lt;- function(core_mains, optional_mains, candidate_interactions) {
   fixed_forms &lt;- character(0)
   
@@ -621,22 +627,39 @@ candidate_interactions &lt;- c(
 
 fixed_forms &lt;- make_fixed_forms(core_mains, optional_mains, candidate_interactions)
 fixed_effects &lt;- fixed_forms
-fixed_effects</code></pre>
+#fixed_effects</code></pre>
 </div>
-<div id="consider-random-effects-structure" class="section level2">
-<h2>Consider random effects structure</h2>
+<div id="specify-candidate-random-effect-structures-for-mixed-model-formulas" class="section level3">
+<h3>Specify candidate random effect structures for mixed model
+formulas</h3>
+<p>In this step, we next define a set of candidate random-effects
+structures for the mixed-effects regression models. These models account
+for the repeated-measures nature of the experiment by allowing
+observations from the same participant and programming task to be
+correlated.</p>
+<p>We consider models with random intercepts for participants
+(<code>1 | part_id</code>) and programming tasks
+(<code>1 | stim_src_id</code>), as well as models that allow the effects
+of AI (<code>ai</code>) and exercise (<code>exercise</code>) to vary
+across participants through random slopes. To select an appropriate
+random-effects structure, we fit each candidate model using the core
+fixed effects (<code>exercise</code>, <code>ai</code>, and
+<code>seq_num</code>) and compare model fit using the Akaike Information
+Criterion (AIC). BIC is also reported for transparency.</p>
 <pre class="r"><code>random_structures &lt;- c(
   R01 = &quot;(1 | part_id)&quot;, 
   R02 = &quot;(1 | stim_src_id)&quot;, 
   R0  = &quot;(1 | part_id) + (1 | stim_src_id)&quot;,                 # intercepts only
   R1  = &quot;(1 + ai | part_id) + (1 | stim_src_id)&quot;,            # AI slope
   R2  = &quot;(1 + exercise | part_id) + (1 | stim_src_id)&quot;,      # exercise slope
-  R3  = &quot;(1 + ai + exercise | part_id) + (1 | stim_src_id)&quot; # both slopes (correlated)
-  #R3u = &quot;(1 + ai + exercise || part_id) + (1 | stim_src_id)&quot; # both slopes, no corr
+  R3  = &quot;(1 + ai + exercise | part_id) + (1 | stim_src_id)&quot;, # both slopes (correlated)
+  R3u = &quot;(1 + ai + exercise || part_id) + (1 | stim_src_id)&quot; # both slopes, no corr
 )</code></pre>
+<p>Checking what random effect model is best given our core fixed
+effects and DV via model criteria</p>
 <pre class="r"><code>## 2. Main fixed-effects part of the model
 ## We could consider it for all the DVs
-fixed_main &lt;- &quot;factor(conciseness_both) ~ exercise + ai + seq_num&quot;
+fixed_main &lt;- &quot;factor(completeness_both) ~ exercise + ai + seq_num&quot;
 
 
 ## 4. Helper that fits all random structures and catches errors
@@ -693,13 +716,13 @@ best_model &lt;- m_rand_ok[[best_by_aic]]
 ## 9. Inspect the chosen model
 
 #summary(best_model)</code></pre>
-<p>We freeze random structure to: (1 | part_id) for the accuracy model
+<p>We freeze random structure to: (1 | part_id) for the accuracy model.
 We freeze random structure to: (1 | part_id) + (1 | stim_src_id) for
 completeness model (we do not choose the AIC preffered structure since
-Intercept–AI slope correlation = –1) We freeze random structure to: (1 |
-part_id) for the readability model We freeze random structure to: (1 |
-part_id) for the consicness model</p>
-<pre class="r"><code>random_exprs = &quot;(1 | part_id)&quot;                        #for accuracy model, readability model, consiceness model
+Intercept–AI slope correlation = –1). We freeze random structure to: (1
+| part_id) for the readability model. We freeze random structure to: (1
+| part_id) for the conciseness model.</p>
+<pre class="r"><code>#random_exprs = &quot;(1 | part_id)&quot;                        #for accuracy model, readability model, conciseness model
 random_exprs = &quot;(1 | part_id) + (1 | stim_src_id)&quot;    #for completeness</code></pre>
 <p>Now, we combine the response variable, fixed effects, and random
 effects together to generate our candidate model structures.</p>
@@ -708,15 +731,16 @@ for (fe in fixed_effects) {
   for (re in random_exprs) {
     f = &quot;&quot;
     if (fe == &quot;&quot;) {
-      f = sprintf(&quot;factor(conciseness_both) ~ %s&quot;, re)
+      f = sprintf(&quot;factor(completeness_both) ~ %s&quot;, re)
     } else {
-      f = sprintf(&quot;factor(conciseness_both) ~ %s + %s&quot;, fe, re)
+      f = sprintf(&quot;factor(completeness_both) ~ %s + %s&quot;, fe, re)
     }
     loglinear_formulae = append(loglinear_formulae, f)
   }
 }
 
 print(length(loglinear_formulae))</code></pre>
+</div>
 <div id="model-fitting-2-minutes" class="section level3">
 <h3>Model fitting (~2 minutes)</h3>
 <p>Here, we fit all the models. Of note, we use MLE rather than REML for
@@ -732,7 +756,7 @@ the reader is interested.</p>
 <pre class="r"><code>if (TRUE) {
   # make an output directory for the output of all the candidate linear models
   logtime_outputdir = 
-    sprintf(&quot;%s/conciseness_both_score_model_summaries_only_frozen_re&quot;, outputdir)
+    sprintf(&quot;%s/completeness_both_score_model_summaries_only_7_1_26&quot;, outputdir)
   mkdir(logtime_outputdir)
   
   # make an output file for the AIC and BIC of each model
@@ -794,12 +818,31 @@ the reader is interested.</p>
 </div>
 <div id="model-selection" class="section level1">
 <h1>Model selection</h1>
+</div>
+<div id="research-question-1-and-research-question-2" class="section level1">
+<h1>Research Question 1 and Research Question 2</h1>
+<p>In this step, we report our findings for the effects on the four
+summary quality attributes by AI and exercise.</p>
+<p>In addition, we report (R^2) values as they are reported in the
+paper</p>
+<p>To quantify the overall explanatory power of the mixed-effects model,
+we report both the marginal and conditional (R^2) values. In
+mixed-effects models, a single (R^2) is not sufficient because variance
+is explained by both the fixed effects (the experimental predictors) and
+the random effects (differences among participants and stimuli). The
+marginal (R^2) represents the proportion of variance explained by the
+fixed effects alone, whereas the conditional (R^2) represents the
+proportion of variance explained by the full model, including both fixed
+and random effects. Reporting both measures provides a more complete
+assessment of model fit and the relative contributions of the
+experimental manipulations and the hierarchical structure of the
+data.</p>
 <div id="accuracy-category-in-summary" class="section level2">
 <h2>Accuracy Category in Summary</h2>
 <pre class="r"><code># read in the AIC/BIC data
-fin = sprintf(&quot;%s/accuracy_both_score_model_summaries_only_frozen_re/metrics.csv&quot;, outputdir)
+fin = sprintf(&quot;%s/accuracy_both_score_model_summaries_only_7_1_26/metrics.csv&quot;, outputdir)
 log_time_models_da = read_csv(fin)</code></pre>
-<pre><code>## Rows: 192 Columns: 3
+<pre><code>## Rows: 96 Columns: 3
 ## ── Column specification ────────────────────────────────────────────────────────
 ## Delimiter: &quot;,&quot;
 ## chr (1): formula
@@ -807,42 +850,29 @@ log_time_models_da = read_csv(fin)</code></pre>
 ## 
 ## ℹ Use `spec()` to retrieve the full column specification for this data.
 ## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.</code></pre>
-<pre class="r"><code>head(log_time_models_da[order(log_time_models_da$AIC),], n = 10)</code></pre>
-<pre><code>## # A tibble: 10 × 3
-##    formula                                                             AIC   BIC
-##    &lt;chr&gt;                                                             &lt;dbl&gt; &lt;dbl&gt;
-##  1 factor(accuracy_both) ~ exercise + ai + seq_num + project_name +…  578.  646.
-##  2 factor(accuracy_both) ~ exercise + ai + seq_num + project_name +…  579.  643.
-##  3 factor(accuracy_both) ~ exercise + ai + seq_num + project_name +…  580.  651.
-##  4 factor(accuracy_both) ~ exercise + ai + seq_num + project_name +…  580.  655.
-##  5 factor(accuracy_both) ~ exercise + ai + seq_num + project_name +…  580.  651.
-##  6 factor(accuracy_both) ~ exercise + ai + seq_num + project_name +…  580.  648.
-##  7 factor(accuracy_both) ~ exercise + ai + seq_num + project_name +…  581.  648.
-##  8 factor(accuracy_both) ~ exercise + ai + seq_num + occupation + e…  581.  645.
-##  9 factor(accuracy_both) ~ exercise + ai + seq_num + project_name +…  581.  656.
-## 10 factor(accuracy_both) ~ exercise + ai + seq_num + project_name +…  582.  660.</code></pre>
-<pre class="r"><code>head(log_time_models_da[order(log_time_models_da$BIC),], n = 10)</code></pre>
-<pre><code>## # A tibble: 10 × 3
-##    formula                                                             AIC   BIC
-##    &lt;chr&gt;                                                             &lt;dbl&gt; &lt;dbl&gt;
-##  1 factor(accuracy_both) ~ exercise + ai + seq_num + (1 | part_id)    591.  630.
-##  2 factor(accuracy_both) ~ exercise + ai + seq_num + project_name +…  590.  633.
-##  3 factor(accuracy_both) ~ exercise + ai + seq_num + exercise:seq_n…  591.  634.
-##  4 factor(accuracy_both) ~ exercise + ai + seq_num + ai:seq_num + (…  592.  635.
-##  5 factor(accuracy_both) ~ exercise + ai + seq_num + project_name +…  589.  635.
-##  6 factor(accuracy_both) ~ exercise + ai + seq_num + exercise:ai + …  593.  635.
-##  7 factor(accuracy_both) ~ exercise + ai + seq_num + order_group + …  593.  636.
-##  8 factor(accuracy_both) ~ exercise + ai + seq_num + order_group + …  592.  638.
-##  9 factor(accuracy_both) ~ exercise + ai + seq_num + project_name +…  592.  638.
-## 10 factor(accuracy_both) ~ exercise + ai + seq_num + project_name +…  592.  638.</code></pre>
-<p>AIC and BIC disagree on the best model fit so we use an anova to
-determine best one</p>
+<pre class="r"><code>head(log_time_models_da[order(log_time_models_da$AIC),], n = 3)</code></pre>
+<pre><code>## # A tibble: 3 × 3
+##   formula                                                              AIC   BIC
+##   &lt;chr&gt;                                                              &lt;dbl&gt; &lt;dbl&gt;
+## 1 factor(accuracy_both) ~ exercise + ai + seq_num + project_name + …  578.  645.
+## 2 factor(accuracy_both) ~ exercise + ai + seq_num + project_name + …  579.  643.
+## 3 factor(accuracy_both) ~ exercise + ai + seq_num + project_name + …  579.  653.</code></pre>
+<pre class="r"><code>head(log_time_models_da[order(log_time_models_da$BIC),], n = 3)</code></pre>
+<pre><code>## # A tibble: 3 × 3
+##   formula                                                              AIC   BIC
+##   &lt;chr&gt;                                                              &lt;dbl&gt; &lt;dbl&gt;
+## 1 factor(accuracy_both) ~ exercise + ai + seq_num + (1 | stim_src_i…  600.  639.
+## 2 factor(accuracy_both) ~ exercise + ai + seq_num + project_name + …  599.  642.
+## 3 factor(accuracy_both) ~ exercise + ai + seq_num + occupation + ex…  582.  642.</code></pre>
+<p>Because AIC and BIC identify different preferred models, we perform a
+likelihood ratio test (LRT) to compare the competing nested models. This
+serves as an additional model comparison criterion for resolving the
+disagreement between the information criteria and selecting the model to
+carry forward.</p>
 <pre class="r"><code>fA = log_time_models_da[order(log_time_models_da$AIC),]$formula[[1]]
-#cat(fA)
 m0 = clmm(fA, data=df)
 
 fB = log_time_models_da[order(log_time_models_da$BIC),]$formula[[1]]
-#cat(fB)
 m1 =  clmm(fB, data=df)
 
 
@@ -854,150 +884,83 @@ anova(m0,m1)</code></pre>
 ## m0 fA       logit flexible  
 ## 
 ##    no.par    AIC  logLik LR.stat df Pr(&gt;Chisq)    
-## m1     11 591.27 -284.63                          
-## m0     19 578.20 -270.10  29.065  8  0.0003089 ***
+## m1     11 599.75 -288.87                          
+## m0     19 577.59 -269.80  38.151  8  7.059e-06 ***
 ## ---
 ## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</code></pre>
-<p>m0 is preferred by anova : factor(accuracy_both) ~ exercise + ai +
-seq_num + project_name + occupation + exercise:ai + exercise:seq_num +
-(1 | part_id)</p>
-<p>We are also curious about the complexity metrics so we check for
-these by assessing if adding them improves model fit:</p>
-<pre class="r"><code>df$halstead_z &lt;- scale(df$halstead_volume) #we need to rescale it
-f_hal =  factor(accuracy_both) ~ exercise + ai + seq_num + project_name + occupation + exercise:ai + exercise:seq_num + halstead_z + (1 | part_id)
-m_hal = clmm(f_hal, data=df)
-
-anova(m0, m_hal)</code></pre>
-<pre><code>## Likelihood ratio tests of cumulative link models:
-##  
-##       formula: link: threshold:
-## m0    fA       logit flexible  
-## m_hal f_hal    logit flexible  
-## 
-##       no.par    AIC  logLik LR.stat df Pr(&gt;Chisq)  
-## m0        19 578.20 -270.10                        
-## m_hal     20 574.31 -267.15  5.8945  1    0.01519 *
-## ---
-## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</code></pre>
-<pre class="r"><code>#summary(m_hal)</code></pre>
-<p>Adding the halstead_z makes the model fit better p = 0.03736 *</p>
-<pre class="r"><code>df$cyclomatic_compl_z &lt;- scale(df$cyclomatic_compl) #we need to rescale it
-f_cyc =  factor(accuracy_both) ~ exercise + ai + seq_num + project_name + occupation + exercise:ai + exercise:seq_num + cyclomatic_compl_z + (1 | part_id)
-m_cyc = clmm(f_cyc, data=df)
-
-anova(m0, m_cyc)</code></pre>
-<pre><code>## Likelihood ratio tests of cumulative link models:
-##  
-##       formula: link: threshold:
-## m0    fA       logit flexible  
-## m_cyc f_cyc    logit flexible  
-## 
-##       no.par    AIC  logLik LR.stat df Pr(&gt;Chisq)
-## m0        19 578.20 -270.10                      
-## m_cyc     20 579.52 -269.76  0.6827  1     0.4086</code></pre>
-<p>Adding the cyclomatic_compl_z DOES NOT make the model fit better p =
-0.5271</p>
-<p>So now we can look at the chosen model in depth:
-factor(accuracy_both) ~ exercise + ai + seq_num + project_name +
-occupation + exercise:ai + exercise:seq_num + halstead_z + (1 |
-part_id)</p>
-<pre class="r"><code>summary(m_hal)</code></pre>
+<p>The likelihood ratio test did find a significant improvement in fit
+for Model m0 over Model m1 (p &lt; 0.01). We therefore selected Model m0
+for subsequent analyses.</p>
+<pre class="r"><code>summary(m0)</code></pre>
 <pre><code>## Cumulative Link Mixed Model fitted with the Laplace approximation
 ## 
 ## formula: factor(accuracy_both) ~ exercise + ai + seq_num + project_name +  
-##     occupation + exercise:ai + exercise:seq_num + halstead_z +  
-##     (1 | part_id)
+##     occupation + exercise:ai + exercise:seq_num + (1 | stim_src_id)
 ## data:    df
 ## 
 ##  link  threshold nobs logLik  AIC    niter      max.grad cond.H 
-##  logit flexible  257  -267.15 574.31 2351(5006) 2.62e-05 1.3e+04
+##  logit flexible  257  -269.80 577.59 1882(5649) 1.25e-04 9.2e+03
 ## 
 ## Random effects:
-##  Groups  Name        Variance Std.Dev.
-##  part_id (Intercept) 0.1662   0.4077  
-## Number of groups:  part_id 47 
+##  Groups      Name        Variance Std.Dev.
+##  stim_src_id (Intercept) 0.2675   0.5172  
+## Number of groups:  stim_src_id 34 
 ## 
 ## Coefficients:
 ##                                                    Estimate Std. Error z value
-## exerciseTrue                                        -2.2964     0.8350  -2.750
-## aiTrue                                               0.1776     0.4581   0.388
-## seq_num                                             -0.3130     0.1376  -2.275
-## project_namespring-ai-alibaba                       -1.1148     0.3745  -2.977
-## occupationGraduate student in Computer Science       1.6049     0.9288   1.728
-## occupationGraduate student not in Computer Science  -0.9502     1.0397  -0.914
-## occupationOther                                      2.9349     1.4036   2.091
-## occupationUndergraduate in Computer Science          0.5521     0.9157   0.603
-## occupationUndergraduate not in Computer Science      1.2909     0.9435   1.368
-## halstead_z                                           0.4759     0.2126   2.238
-## exerciseTrue:aiTrue                                  1.1830     0.7077   1.672
-## exerciseTrue:seq_num                                 0.4133     0.1966   2.102
+## exerciseTrue                                        -2.5042     0.7804  -3.209
+## aiTrue                                               0.1219     0.4442   0.275
+## seq_num                                             -0.3518     0.1341  -2.623
+## project_namespring-ai-alibaba                       -0.6636     0.3422  -1.939
+## occupationGraduate student in Computer Science       1.7791     0.8648   2.057
+## occupationGraduate student not in Computer Science  -0.8609     0.9447  -0.911
+## occupationOther                                      3.2968     1.3605   2.423
+## occupationUndergraduate in Computer Science          0.7322     0.8405   0.871
+## occupationUndergraduate not in Computer Science      1.4624     0.8625   1.695
+## exerciseTrue:aiTrue                                  1.1693     0.6467   1.808
+## exerciseTrue:seq_num                                 0.4827     0.1835   2.630
 ##                                                    Pr(&gt;|z|)   
-## exerciseTrue                                        0.00596 **
-## aiTrue                                              0.69818   
-## seq_num                                             0.02290 * 
-## project_namespring-ai-alibaba                       0.00291 **
-## occupationGraduate student in Computer Science      0.08400 . 
-## occupationGraduate student not in Computer Science  0.36076   
-## occupationOther                                     0.03652 * 
-## occupationUndergraduate in Computer Science         0.54657   
-## occupationUndergraduate not in Computer Science     0.17126   
-## halstead_z                                          0.02521 * 
-## exerciseTrue:aiTrue                                 0.09460 . 
-## exerciseTrue:seq_num                                0.03554 * 
+## exerciseTrue                                        0.00133 **
+## aiTrue                                              0.78370   
+## seq_num                                             0.00871 **
+## project_namespring-ai-alibaba                       0.05247 . 
+## occupationGraduate student in Computer Science      0.03966 * 
+## occupationGraduate student not in Computer Science  0.36218   
+## occupationOther                                     0.01538 * 
+## occupationUndergraduate in Computer Science         0.38370   
+## occupationUndergraduate not in Computer Science     0.08998 . 
+## exerciseTrue:aiTrue                                 0.07058 . 
+## exerciseTrue:seq_num                                0.00853 **
 ## ---
 ## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
 ## 
 ## Threshold coefficients:
 ##       Estimate Std. Error z value
-## 0|2     -6.226      1.351  -4.608
-## 2|2.5   -5.070      1.212  -4.183
-## 2.5|3   -4.906      1.201  -4.084
-## 3|3.5   -3.732      1.156  -3.228
-## 3.5|4   -3.460      1.150  -3.007
-## 4|4.5   -2.113      1.134  -1.863
-## 4.5|5   -1.562      1.129  -1.384</code></pre>
-<p>exerciseTrue β = -2.669, p = 0.0014 ** (Meaning - Participants in the
+## 0|2     -6.003      1.267  -4.737
+## 2|2.5   -4.855      1.123  -4.323
+## 2.5|3   -4.692      1.112  -4.219
+## 3|3.5   -3.521      1.066  -3.302
+## 3.5|4   -3.252      1.061  -3.064
+## 4|4.5   -1.909      1.052  -1.814
+## 4.5|5   -1.356      1.051  -1.291</code></pre>
+<pre class="r"><code>r2(m0)</code></pre>
+<pre><code>## # R2 for Mixed Models
+## 
+##   Conditional R2: 0.278
+##      Marginal R2: 0.219</code></pre>
+<p>exerciseTrue β = -3.209, p = 0.0013 ** (Meaning - Participants in the
 exercise condition were much less likely to achieve higher accuracy
 ratings than those in the non-exercise condition.</p>
-<p>aiTrue β = 0.153, p = 0.742 (ns) (Meaning - AI assistance did not
-significantly change the odds of higher accuracy, on average.)</p>
-<p>seq_num β = -0.369, p = 0.0076 ** (Meaning - As participants
-progressed through trials, accuracy decreased.)</p>
-<p>project_name β = -0.617, p = 0.032 * (Meaning - Accuracy was
-significantly lower on the spring-ai-alibaba project than on the
-reference project.)</p>
-<p>occupation β = 2.984, p = 0.038 * (Meaning - Participants in the
-“Other” occupation category had dramatically higher accuracy than the
-reference occupation group.)</p>
-<p>exercise X AI β = 1.204, p = 0.096 (marginal) (meaning - Exercise
-alone hurts accuracy (strongly negative, AI alone does nothing, But AI
-partially offsets the harm of exercise)</p>
-<p>exercise X Seq_num β = 0.515, p = 0.009 ** (meaning- Without
+<p>exercise X Seq_num β = 0.515, p = 0.00853 ** (meaning- Without
 exercise: accuracy declines across trials With exercise: that decline is
 significantly reduced or even reversed)</p>
-<p>Under the non-exercise condition, accuracy declined over time; under
-the exercise condition, this decline was slower.</p>
-<p>halstead_z 2.235 0.02544 * (meaning- as halstead score increased,
-more likely to be correct)</p>
-<pre class="r"><code>#df_ai &lt;- subset(df, ai == &quot;True&quot;)
-#df_ai$ai3 &lt;- case_when(
-#    df_ai$tp_tn %in% c(&quot;TP&quot;,&quot;TN&quot;) ~ &quot;ai_correct&quot;,
-#    df_ai$tp_tn == &quot;FN&quot; ~ &quot;ai_wrong&quot;,
-#    df_ai$tp_tn == &quot;FP&quot; ~ &quot;ai_wrong&quot;
-#)
-#df_ai
-
-
-#f_ai =  factor(accuracy_both) ~ exercise + ai3 + seq_num + (1 | part_id)
-#m_ai = clmm(f_ai, data=df_ai)
-#summary(m_ai)</code></pre>
 </div>
 <div id="completeness-category-in-summary" class="section level2">
 <h2>Completeness Category in Summary</h2>
 <pre class="r"><code># read in the AIC/BIC data
-fin = sprintf(&quot;%s/completeness_both_score_model_summaries_only/metrics.csv&quot;, outputdir)
+fin = sprintf(&quot;%s/completeness_both_score_model_summaries_only_7_1_26/metrics.csv&quot;, outputdir)
 log_time_models_da = read_csv(fin)</code></pre>
-<pre><code>## Rows: 672 Columns: 3
+<pre><code>## Rows: 96 Columns: 3
 ## ── Column specification ────────────────────────────────────────────────────────
 ## Delimiter: &quot;,&quot;
 ## chr (1): formula
@@ -1005,74 +968,48 @@ log_time_models_da = read_csv(fin)</code></pre>
 ## 
 ## ℹ Use `spec()` to retrieve the full column specification for this data.
 ## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.</code></pre>
-<pre class="r"><code>head(log_time_models_da[order(log_time_models_da$AIC),], n = 10)</code></pre>
-<pre><code>## # A tibble: 10 × 3
-##    formula                                                             AIC   BIC
-##    &lt;chr&gt;                                                             &lt;dbl&gt; &lt;dbl&gt;
-##  1 factor(completeness_both) ~ exercise + ai + seq_num + (1 | stim_… 1004. 1065.
-##  2 factor(completeness_both) ~ exercise + ai + seq_num + (1 | part_… 1005. 1059.
-##  3 factor(completeness_both) ~ exercise + ai + seq_num + occupation… 1006. 1084.
-##  4 factor(completeness_both) ~ exercise + ai + seq_num + ai:seq_num… 1006. 1070.
-##  5 factor(completeness_both) ~ exercise + ai + seq_num + exercise:s… 1006. 1070.
-##  6 factor(completeness_both) ~ exercise + ai + seq_num + occupation… 1006. 1088.
-##  7 factor(completeness_both) ~ exercise + ai + seq_num + project_na… 1006. 1070.
-##  8 factor(completeness_both) ~ exercise + ai + seq_num + exercise:a… 1006. 1070.
-##  9 factor(completeness_both) ~ exercise + ai + seq_num + (1 | part_… 1007. 1057.
-## 10 factor(completeness_both) ~ exercise + ai + seq_num + exercise:s… 1007. 1064.</code></pre>
-<pre class="r"><code>head(log_time_models_da[order(log_time_models_da$BIC),], n = 10)</code></pre>
-<pre><code>## # A tibble: 10 × 3
-##    formula                                                             AIC   BIC
-##    &lt;chr&gt;                                                             &lt;dbl&gt; &lt;dbl&gt;
-##  1 factor(completeness_both) ~ exercise + ai + seq_num + (1 | part_… 1007. 1057.
-##  2 factor(completeness_both) ~ exercise + ai + seq_num + (1 | part_… 1005. 1059.
-##  3 factor(completeness_both) ~ exercise + ai + seq_num + exercise:s… 1009. 1062.
-##  4 factor(completeness_both) ~ exercise + ai + seq_num + project_na… 1009. 1062.
-##  5 factor(completeness_both) ~ exercise + ai + seq_num + ai:seq_num… 1009. 1062.
-##  6 factor(completeness_both) ~ exercise + ai + seq_num + exercise:a… 1009. 1062.
-##  7 factor(completeness_both) ~ exercise + ai + seq_num + exercise:s… 1007. 1064.
-##  8 factor(completeness_both) ~ exercise + ai + seq_num + ai:seq_num… 1007. 1064.
-##  9 factor(completeness_both) ~ exercise + ai + seq_num + project_na… 1007. 1064.
-## 10 factor(completeness_both) ~ exercise + ai + seq_num + exercise:a… 1007. 1064.</code></pre>
-<p>AIC and BIC agree on the best model fit : factor(completeness_both) ~
-exercise + ai + seq_num + (1 | part_id) + (1 | stim_src_id)</p>
-<pre class="r"><code>fA = log_time_models_da[order(log_time_models_da$AIC),]$formula[[2]]
-#cat(fA)
-m0 = clmm(fA, data=df)</code></pre>
-<p>We are intested in assessing complexity metrics</p>
-<pre class="r"><code>df$halstead_z &lt;- scale(df$halstead_volume) #we need to rescale it
-f_hal =  factor(completeness_both) ~ exercise + ai + seq_num + halstead_z + (1 | part_id) + (1 | stim_src_id) 
-m_hal = clmm(f_hal, data=df)
+<pre class="r"><code>head(log_time_models_da[order(log_time_models_da$AIC),], n = 3)</code></pre>
+<pre><code>## # A tibble: 3 × 3
+##   formula                                                              AIC   BIC
+##   &lt;chr&gt;                                                              &lt;dbl&gt; &lt;dbl&gt;
+## 1 factor(completeness_both) ~ exercise + ai + seq_num + zoom_self +… 1004. 1061.
+## 2 factor(completeness_both) ~ exercise + ai + seq_num + (1 | part_i… 1005. 1059.
+## 3 factor(completeness_both) ~ exercise + ai + seq_num + occupation … 1006. 1080.</code></pre>
+<pre class="r"><code>head(log_time_models_da[order(log_time_models_da$BIC),], n = 3)</code></pre>
+<pre><code>## # A tibble: 3 × 3
+##   formula                                                              AIC   BIC
+##   &lt;chr&gt;                                                              &lt;dbl&gt; &lt;dbl&gt;
+## 1 factor(completeness_both) ~ exercise + ai + seq_num + (1 | part_i… 1005. 1059.
+## 2 factor(completeness_both) ~ exercise + ai + seq_num + zoom_self +… 1004. 1061.
+## 3 factor(completeness_both) ~ exercise + ai + seq_num + exercise:se… 1007. 1064.</code></pre>
+<p>Because AIC and BIC identify different preferred models, we perform a
+likelihood ratio test (LRT) to compare the competing nested models. This
+serves as an additional model comparison criterion for resolving the
+disagreement between the information criteria and selecting the model to
+carry forward.</p>
+<pre class="r"><code>fA = log_time_models_da[order(log_time_models_da$AIC),]$formula[[1]]
+m0 = clmm(fA, data=df)
 
-anova(m0, m_hal)</code></pre>
+fB = log_time_models_da[order(log_time_models_da$BIC),]$formula[[1]]
+m1 =  clmm(fB, data=df)
+
+
+anova(m0,m1)</code></pre>
 <pre><code>## Likelihood ratio tests of cumulative link models:
 ##  
-##       formula: link: threshold:
-## m0    fA       logit flexible  
-## m_hal f_hal    logit flexible  
+##    formula: link: threshold:
+## m1 fB       logit flexible  
+## m0 fA       logit flexible  
 ## 
-##       no.par    AIC  logLik LR.stat df Pr(&gt;Chisq)
-## m0        15 1005.3 -487.65                      
-## m_hal     16 1006.5 -487.27  0.7646  1     0.3819</code></pre>
-<p>Adding the halstead_z DOES NOT make the model fit better p =
-0.3819</p>
-<pre class="r"><code>df$cyclomatic_compl_z &lt;- scale(df$cyclomatic_compl) #we need to rescale it
-f_cyc =  factor(completeness_both) ~ exercise + ai + seq_num + cyclomatic_compl_z + (1 | part_id) + (1 | stim_src_id) 
-m_cyc = clmm(f_cyc, data=df)
-
-anova(m0, m_cyc)</code></pre>
-<pre><code>## Likelihood ratio tests of cumulative link models:
-##  
-##       formula: link: threshold:
-## m0    fA       logit flexible  
-## m_cyc f_cyc    logit flexible  
-## 
-##       no.par    AIC  logLik LR.stat df Pr(&gt;Chisq)
-## m0        15 1005.3 -487.65                      
-## m_cyc     16 1007.2 -487.58  0.1578  1     0.6912</code></pre>
-<p>Adding the cyclomatic_compl_z DOES NOT make the model fit better p =
-0.6912</p>
-<p>We can now consider our model in depth:</p>
-<pre class="r"><code>summary(m0)</code></pre>
+##    no.par    AIC  logLik LR.stat df Pr(&gt;Chisq)  
+## m1     15 1005.3 -487.65                        
+## m0     16 1004.5 -486.23  2.8482  1    0.09148 .
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</code></pre>
+<p>The likelihood ratio test did not find a significant improvement in
+fit for Model m0 over Model m1 (p = 0.09). We therefore selected Model
+m1 for subsequent analyses.</p>
+<pre class="r"><code>summary(m1)</code></pre>
 <pre><code>## Cumulative Link Mixed Model fitted with the Laplace approximation
 ## 
 ## formula: factor(completeness_both) ~ exercise + ai + seq_num + (1 | part_id) +  
@@ -1108,31 +1045,19 @@ anova(m0, m_cyc)</code></pre>
 ## 3.5|4   1.9791     0.4241   4.667
 ## 4|4.5   3.3221     0.4704   7.062
 ## 4.5|5   3.6471     0.4885   7.466</code></pre>
-<pre class="r"><code>r2(m0)</code></pre>
+<pre class="r"><code>r2(m1)</code></pre>
 <pre><code>## # R2 for Mixed Models
 ## 
 ##   Conditional R2: 0.425
 ##      Marginal R2: 0.015</code></pre>
 <p>ai (2.069 0.0386 *) (ai made you more complete than without ai)</p>
-<pre class="r"><code>#df_ai &lt;- subset(df, ai == &quot;True&quot;)
-#df_ai$ai3 &lt;- case_when(
-#    df_ai$tp_tn %in% c(&quot;TP&quot;,&quot;TN&quot;) ~ &quot;ai_correct&quot;,
-#    df_ai$tp_tn == &quot;FN&quot; ~ &quot;ai_wrong&quot;,
-#    df_ai$tp_tn == &quot;FP&quot; ~ &quot;ai_wrong&quot;
-#)
-#df_ai
-
-
-#f_ai =  factor(completeness_both) ~ exercise + ai3 + seq_num + (1 | part_id) + (1 | stim_src_id) 
-#m_ai = clmm(f_ai, data=df_ai)
-#summary(m_ai)</code></pre>
 </div>
 <div id="conciseness-category-in-summary" class="section level2">
 <h2>Conciseness Category in Summary</h2>
 <pre class="r"><code># read in the AIC/BIC data
-fin = sprintf(&quot;%s/conciseness_both_score_model_summaries_only_frozen_re/metrics.csv&quot;, outputdir)
+fin = sprintf(&quot;%s/conciseness_both_score_model_summaries_only_6_29_26/metrics.csv&quot;, outputdir)
 log_time_models_da = read_csv(fin)</code></pre>
-<pre><code>## Rows: 288 Columns: 3
+<pre><code>## Rows: 192 Columns: 3
 ## ── Column specification ────────────────────────────────────────────────────────
 ## Delimiter: &quot;,&quot;
 ## chr (1): formula
@@ -1140,36 +1065,25 @@ log_time_models_da = read_csv(fin)</code></pre>
 ## 
 ## ℹ Use `spec()` to retrieve the full column specification for this data.
 ## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.</code></pre>
-<pre class="r"><code>head(log_time_models_da[order(log_time_models_da$AIC),], n = 10)</code></pre>
-<pre><code>## # A tibble: 10 × 3
-##    formula                                                             AIC   BIC
-##    &lt;chr&gt;                                                             &lt;dbl&gt; &lt;dbl&gt;
-##  1 factor(conciseness_both) ~ exercise + ai + seq_num + project_nam…  473.  534.
-##  2 factor(conciseness_both) ~ exercise + ai + seq_num + project_nam…  474.  538.
-##  3 factor(conciseness_both) ~ exercise + ai + seq_num + project_nam…  474.  520.
-##  4 factor(conciseness_both) ~ exercise + ai + seq_num + project_nam…  474.  541.
-##  5 factor(conciseness_both) ~ exercise + ai + seq_num + project_nam…  474.  545.
-##  6 factor(conciseness_both) ~ exercise + ai + seq_num + project_nam…  474.  538.
-##  7 factor(conciseness_both) ~ exercise + ai + seq_num + project_nam…  474.  524.
-##  8 factor(conciseness_both) ~ exercise + ai + seq_num + project_nam…  474.  542.
-##  9 factor(conciseness_both) ~ exercise + ai + seq_num + project_nam…  474.  517.
-## 10 factor(conciseness_both) ~ exercise + ai + seq_num + project_nam…  474.  524.</code></pre>
-<pre class="r"><code>head(log_time_models_da[order(log_time_models_da$BIC),], n = 10)</code></pre>
-<pre><code>## # A tibble: 10 × 3
-##    formula                                                             AIC   BIC
-##    &lt;chr&gt;                                                             &lt;dbl&gt; &lt;dbl&gt;
-##  1 factor(conciseness_both) ~ exercise + ai + seq_num + (1 | part_i…  476.  515.
-##  2 factor(conciseness_both) ~ exercise + ai + seq_num + project_nam…  474.  517.
-##  3 factor(conciseness_both) ~ exercise + ai + seq_num + exercise:se…  475.  518.
-##  4 factor(conciseness_both) ~ exercise + ai + seq_num + ai:seq_num …  477.  520.
-##  5 factor(conciseness_both) ~ exercise + ai + seq_num + project_nam…  474.  520.
-##  6 factor(conciseness_both) ~ exercise + ai + seq_num + order_group…  477.  520.
-##  7 factor(conciseness_both) ~ exercise + ai + seq_num + exercise:ai…  478.  521.
-##  8 factor(conciseness_both) ~ exercise + ai + seq_num + order_group…  475.  521.
-##  9 factor(conciseness_both) ~ exercise + ai + seq_num + project_nam…  475.  521.
-## 10 factor(conciseness_both) ~ exercise + ai + seq_num + project_nam…  476.  522.</code></pre>
-<p>AIC and BIC disagree on the best model fit so we use an anova to
-determine best one</p>
+<pre class="r"><code>head(log_time_models_da[order(log_time_models_da$AIC),], n = 3)</code></pre>
+<pre><code>## # A tibble: 3 × 3
+##   formula                                                              AIC   BIC
+##   &lt;chr&gt;                                                              &lt;dbl&gt; &lt;dbl&gt;
+## 1 factor(conciseness_both) ~ exercise + ai + seq_num + project_name…  473.  534.
+## 2 factor(conciseness_both) ~ exercise + ai + seq_num + project_name…  474.  538.
+## 3 factor(conciseness_both) ~ exercise + ai + seq_num + project_name…  474.  520.</code></pre>
+<pre class="r"><code>head(log_time_models_da[order(log_time_models_da$BIC),], n = 3)</code></pre>
+<pre><code>## # A tibble: 3 × 3
+##   formula                                                              AIC   BIC
+##   &lt;chr&gt;                                                              &lt;dbl&gt; &lt;dbl&gt;
+## 1 factor(conciseness_both) ~ exercise + ai + seq_num + (1 | part_id)  476.  515.
+## 2 factor(conciseness_both) ~ exercise + ai + seq_num + project_name…  474.  517.
+## 3 factor(conciseness_both) ~ exercise + ai + seq_num + exercise:seq…  475.  518.</code></pre>
+<p>Because AIC and BIC identify different preferred models, we perform a
+likelihood ratio test (LRT) to compare the competing nested models. This
+serves as an additional model comparison criterion for resolving the
+disagreement between the information criteria and selecting the model to
+carry forward.</p>
 <pre class="r"><code>fA = log_time_models_da[order(log_time_models_da$AIC),]$formula[[1]]
 #cat(fA)
 m0 = clmm(fA, data=df)
@@ -1191,42 +1105,9 @@ anova(m0,m1)</code></pre>
 ## m0     17 473.30 -219.65  14.796  6    0.02191 *
 ## ---
 ## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</code></pre>
-<p>Model favor m0 : factor(conciseness_both) ~ exercise + ai + seq_num +
-project_name + occupation + (1 | part_id)</p>
-<p>We are intested in assessing complexity metrics</p>
-<pre class="r"><code>df$halstead_z &lt;- scale(df$halstead_volume) #we need to rescale it
-f_hal =  factor(conciseness_both) ~ exercise + ai + seq_num + project_name + occupation + halstead_z + (1 | part_id)
-m_hal = clmm(f_hal, data=df)
-
-anova(m0, m_hal)</code></pre>
-<pre><code>## Likelihood ratio tests of cumulative link models:
-##  
-##       formula: link: threshold:
-## m0    fA       logit flexible  
-## m_hal f_hal    logit flexible  
-## 
-##       no.par    AIC  logLik LR.stat df Pr(&gt;Chisq)
-## m0        17 473.30 -219.65                      
-## m_hal     18 475.11 -219.56  0.1864  1     0.6659</code></pre>
-<p>Adding the halstead_z DOES NOT make the model fit better p =
-0.6659</p>
-<pre class="r"><code>df$cyclomatic_compl_z &lt;- scale(df$cyclomatic_compl) #we need to rescale it
-f_cyc =  factor(conciseness_both) ~ exercise + ai + seq_num + project_name + occupation + cyclomatic_compl_z + (1 | part_id) 
-m_cyc = clmm(f_cyc, data=df)
-
-anova(m0, m_cyc)</code></pre>
-<pre><code>## Likelihood ratio tests of cumulative link models:
-##  
-##       formula: link: threshold:
-## m0    fA       logit flexible  
-## m_cyc f_cyc    logit flexible  
-## 
-##       no.par    AIC  logLik LR.stat df Pr(&gt;Chisq)
-## m0        17 473.30 -219.65                      
-## m_cyc     18 474.88 -219.44  0.4174  1     0.5182</code></pre>
-<p>Adding the cyclomatic_compl_z DOES NOT make the model fit better p =
-0.5182</p>
-<p>We can now consider our model in depth:</p>
+<p>The likelihood ratio test did find a significant improvement in fit
+for Model m0 over Model m1 (p &lt; 0.03). We therefore selected Model m0
+for subsequent analyses.</p>
 <pre class="r"><code>summary(m0)</code></pre>
 <pre><code>## Cumulative Link Mixed Model fitted with the Laplace approximation
 ## 
@@ -1281,15 +1162,14 @@ anova(m0, m_cyc)</code></pre>
 ##   Conditional R2: 0.474
 ##      Marginal R2: 0.218</code></pre>
 <p>exercise (-2.574, 0.01005 * ) less concise ai (3.039 0.00237 **) more
-concise project name (-2.000 0.04545 * ) spring-ai-alibaba project are
-less consice</p>
+concise</p>
 </div>
 <div id="readability-category-in-summary" class="section level2">
 <h2>Readability Category in Summary</h2>
 <pre class="r"><code># read in the AIC/BIC data
-fin = sprintf(&quot;%s/readability_both_score_model_summaries_only_frozen_re/metrics.csv&quot;, outputdir)
+fin = sprintf(&quot;%s/readability_both_score_model_summaries_only_7_1_26/metrics.csv&quot;, outputdir)
 log_time_models_da = read_csv(fin)</code></pre>
-<pre><code>## Rows: 288 Columns: 3
+<pre><code>## Rows: 96 Columns: 3
 ## ── Column specification ────────────────────────────────────────────────────────
 ## Delimiter: &quot;,&quot;
 ## chr (1): formula
@@ -1297,36 +1177,25 @@ log_time_models_da = read_csv(fin)</code></pre>
 ## 
 ## ℹ Use `spec()` to retrieve the full column specification for this data.
 ## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.</code></pre>
-<pre class="r"><code>head(log_time_models_da[order(log_time_models_da$AIC),], n = 10)</code></pre>
-<pre><code>## # A tibble: 10 × 3
-##    formula                                                             AIC   BIC
-##    &lt;chr&gt;                                                             &lt;dbl&gt; &lt;dbl&gt;
-##  1 factor(readability_both) ~ exercise + ai + seq_num + project_nam…  336.  379.
-##  2 factor(readability_both) ~ exercise + ai + seq_num + project_nam…  336.  400.
-##  3 factor(readability_both) ~ exercise + ai + seq_num + project_nam…  336.  382.
-##  4 factor(readability_both) ~ exercise + ai + seq_num + project_nam…  336.  390.
-##  5 factor(readability_both) ~ exercise + ai + seq_num + project_nam…  336.  376.
-##  6 factor(readability_both) ~ exercise + ai + seq_num + project_nam…  337.  376.
-##  7 factor(readability_both) ~ exercise + ai + seq_num + project_nam…  337.  379.
-##  8 factor(readability_both) ~ exercise + ai + seq_num + project_nam…  337.  372.
-##  9 factor(readability_both) ~ exercise + ai + seq_num + project_nam…  337.  387.
-## 10 factor(readability_both) ~ exercise + ai + seq_num + project_nam…  337.  380.</code></pre>
-<pre class="r"><code>head(log_time_models_da[order(log_time_models_da$BIC),], n = 10)</code></pre>
-<pre><code>## # A tibble: 10 × 3
-##    formula                                                             AIC   BIC
-##    &lt;chr&gt;                                                             &lt;dbl&gt; &lt;dbl&gt;
-##  1 factor(readability_both) ~ exercise + ai + seq_num + (1 | part_i…  340.  372.
-##  2 factor(readability_both) ~ exercise + ai + seq_num + project_nam…  337.  372.
-##  3 factor(readability_both) ~ exercise + ai + seq_num + exercise:ai…  339.  375.
-##  4 factor(readability_both) ~ exercise + ai + seq_num + ai:seq_num …  340.  375.
-##  5 factor(readability_both) ~ exercise + ai + seq_num + project_nam…  336.  376.
-##  6 factor(readability_both) ~ exercise + ai + seq_num + project_nam…  337.  376.
-##  7 factor(readability_both) ~ exercise + ai + seq_num + exercise:se…  341.  376.
-##  8 factor(readability_both) ~ exercise + ai + seq_num + project_nam…  337.  376.
-##  9 factor(readability_both) ~ exercise + ai + seq_num + order_group…  342.  377.
-## 10 factor(readability_both) ~ exercise + ai + seq_num + project_nam…  339.  378.</code></pre>
-<p>AIC and BIC disagree on the best model fit so we use an anova to
-determine best one</p>
+<pre class="r"><code>head(log_time_models_da[order(log_time_models_da$AIC),], n = 3)</code></pre>
+<pre><code>## # A tibble: 3 × 3
+##   formula                                                              AIC   BIC
+##   &lt;chr&gt;                                                              &lt;dbl&gt; &lt;dbl&gt;
+## 1 factor(readability_both) ~ exercise + ai + seq_num + project_name…  337.  376.
+## 2 factor(readability_both) ~ exercise + ai + seq_num + project_name…  337.  372.
+## 3 factor(readability_both) ~ exercise + ai + seq_num + project_name…  337.  380.</code></pre>
+<pre class="r"><code>head(log_time_models_da[order(log_time_models_da$BIC),], n = 3)</code></pre>
+<pre><code>## # A tibble: 3 × 3
+##   formula                                                              AIC   BIC
+##   &lt;chr&gt;                                                              &lt;dbl&gt; &lt;dbl&gt;
+## 1 factor(readability_both) ~ exercise + ai + seq_num + (1 | part_id)  340.  372.
+## 2 factor(readability_both) ~ exercise + ai + seq_num + project_name…  337.  372.
+## 3 factor(readability_both) ~ exercise + ai + seq_num + exercise:ai …  339.  375.</code></pre>
+<p>Because AIC and BIC identify different preferred models, we perform a
+likelihood ratio test (LRT) to compare the competing nested models. This
+serves as an additional model comparison criterion for resolving the
+disagreement between the information criteria and selecting the model to
+carry forward.</p>
 <pre class="r"><code>fA = log_time_models_da[order(log_time_models_da$AIC),]$formula[[1]]
 #cat(fA)
 m0 = clmm(fA, data=df)
@@ -1345,87 +1214,51 @@ anova(m0,m1)</code></pre>
 ## 
 ##    no.par    AIC  logLik LR.stat df Pr(&gt;Chisq)  
 ## m1      9 339.56 -160.78                        
-## m0     12 335.95 -155.98  9.6072  3    0.02222 *
+## m0     11 336.54 -157.27  7.0239  2    0.02984 *
 ## ---
 ## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</code></pre>
-<p>Model favor m0 : factor(readability_both) ~ exercise + ai + seq_num +
-project_name + exercise:ai + ai:seq_num + (1 | part_id)</p>
-<p>We are intested in assessing complexity metrics</p>
-<pre class="r"><code>df$halstead_z &lt;- scale(df$halstead_volume) #we need to rescale it
-f_hal =  factor(readability_both) ~ exercise + ai + seq_num + project_name + exercise:ai + ai:seq_num + halstead_z+ (1 | part_id)
-m_hal = clmm(f_hal, data=df)
-
-anova(m0, m_hal)</code></pre>
-<pre><code>## Likelihood ratio tests of cumulative link models:
-##  
-##       formula: link: threshold:
-## m0    fA       logit flexible  
-## m_hal f_hal    logit flexible  
-## 
-##       no.par    AIC  logLik LR.stat df Pr(&gt;Chisq)  
-## m0        12 335.95 -155.98                        
-## m_hal     13 334.76 -154.38  3.1917  1    0.07401 .
-## ---
-## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</code></pre>
-<p>Adding the halstead_z DOES NOT make the model fit better p = 0.07401
-.(looks like possible trend though)</p>
-<pre class="r"><code>df$cyclomatic_compl_z &lt;- scale(df$cyclomatic_compl) #we need to rescale it
-f_cyc =  factor(readability_both) ~ exercise + ai + seq_num + project_name + exercise:ai + ai:seq_num + cyclomatic_compl_z + (1 | part_id) 
-m_cyc = clmm(f_cyc, data=df)
-
-anova(m0, m_cyc)</code></pre>
-<pre><code>## Likelihood ratio tests of cumulative link models:
-##  
-##       formula: link: threshold:
-## m0    fA       logit flexible  
-## m_cyc f_cyc    logit flexible  
-## 
-##       no.par    AIC  logLik LR.stat df Pr(&gt;Chisq)
-## m0        12 335.95 -155.98                      
-## m_cyc     13 337.76 -155.88  0.1945  1     0.6592</code></pre>
-<p>Adding the cyclomatic_compl_z DOES NOT make the model fit better p =
-0.6592</p>
-<p>We can now consider our model in depth:</p>
+<p>The likelihood ratio test did find a significant improvement in fit
+for Model m0 over Model m1 (p &lt; 0.03). We therefore selected Model m0
+for subsequent analyses.</p>
 <pre class="r"><code>summary(m0)</code></pre>
 <pre><code>## Cumulative Link Mixed Model fitted with the Laplace approximation
 ## 
 ## formula: factor(readability_both) ~ exercise + ai + seq_num + project_name +  
-##     exercise:ai + ai:seq_num + (1 | part_id)
+##     exercise:ai + (1 | part_id)
 ## data:    df
 ## 
 ##  link  threshold nobs logLik  AIC    niter     max.grad cond.H 
-##  logit flexible  257  -155.98 335.95 754(3263) 3.21e-05 2.2e+03
+##  logit flexible  257  -157.27 336.54 619(3034) 4.35e-05 1.2e+03
 ## 
 ## Random effects:
 ##  Groups  Name        Variance Std.Dev.
-##  part_id (Intercept) 4.047    2.012   
+##  part_id (Intercept) 4.005    2.001   
 ## Number of groups:  part_id 47 
 ## 
 ## Coefficients:
 ##                               Estimate Std. Error z value Pr(&gt;|z|)  
-## exerciseTrue                   -1.0411     0.8215  -1.267   0.2051  
-## aiTrue                         -2.1614     1.5672  -1.379   0.1679  
-## seq_num                        -0.3512     0.1926  -1.824   0.0682 .
-## project_namespring-ai-alibaba  -0.9013     0.4121  -2.187   0.0287 *
-## exerciseTrue:aiTrue             2.4460     1.5779   1.550   0.1211  
-## aiTrue:seq_num                  0.5599     0.3527   1.588   0.1124  
+## exerciseTrue                  -0.97659    0.81547  -1.198   0.2311  
+## aiTrue                        -0.09577    0.84408  -0.113   0.9097  
+## seq_num                       -0.10857    0.11345  -0.957   0.3386  
+## project_namespring-ai-alibaba -0.85206    0.40679  -2.095   0.0362 *
+## exerciseTrue:aiTrue            2.27970    1.56480   1.457   0.1452  
 ## ---
 ## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
 ## 
 ## Threshold coefficients:
 ##       Estimate Std. Error z value
-## 2.5|3   -9.451      1.670  -5.658
-## 3|3.5   -7.941      1.397  -5.686
-## 3.5|4   -7.266      1.279  -5.679
-## 4|4.5   -4.541      1.067  -4.257
-## 4.5|5   -3.949      1.046  -3.774</code></pre>
+## 2.5|3  -8.4250     1.4523  -5.801
+## 3|3.5  -6.9579     1.1731  -5.931
+## 3.5|4  -6.3048     1.0539  -5.983
+## 4|4.5  -3.6218     0.8334  -4.346
+## 4.5|5  -3.0349     0.8127  -3.734</code></pre>
 <pre class="r"><code>r2(m0)</code></pre>
 <pre><code>## # R2 for Mixed Models
 ## 
-##   Conditional R2: 0.609
-##      Marginal R2: 0.129</code></pre>
-<p>project name (-2.187 0.0287 *) spring-ai-alibaba project are less
-readable</p>
+##   Conditional R2: 0.596
+##      Marginal R2: 0.104</code></pre>
+<p>However, being in the exercise or the ai condition does not improve
+readability.</p>
 </div>
 </div>
 

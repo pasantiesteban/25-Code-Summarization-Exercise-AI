@@ -4,7 +4,13 @@ output: html_document
 date: "2025-1-29"
 ---
 
+## Introduction
+
+In this file, you find part of our results for research question 1 (specifically as it relates to accuracy and exercise and accuracy and ai). We start this file with loading data (the same as all other files) and then delve into our main findings. Readers interested in verifying the main result in RQ1 should search for the string "Research Question 1". 
+
+
 ## Packages
+
 
 ```{r}
 # import packages
@@ -28,14 +34,16 @@ library(ggplot2)
 
 ## Notebook configurable settings
 
+We name of the directory write output to and we make an overall output directory (model summaries, stats, etc. will all go here)
+
 ```{r}
 # name the directories to read data from and write output to
 input_version = 2
-output_version = 'programming'
+output_version = 'programming-v2'
 
 ```
 
-make an overall output directory (model summaries, stats, etc. will all go here)
+
 ```{r}
 
 outputdir = sprintf("%s/../candidate-models/regression-models-%s",getwd(), output_version)
@@ -44,20 +52,20 @@ outputdir = sprintf("%s/../candidate-models/regression-models-%s",getwd(), outpu
 
 
 ## Loading Data
-
+For consistency, we output the number of rows in our data which represent trials or items -- each row represents an instance where a participant answered a stimulus question.
 ```{r}
 #setwd("..")
 input_file = sprintf("%s/../preprocessed-data/full-data-version-%d/programming-full-data.csv", getwd(), input_version)
 data <- read.csv(input_file)
 
 
-#data
+nrow(data)
 
 ```
 
 ## Data Management
 
-Computing the IPAQ score and adding it as a column to the data
+In this step, we want to calculate each participant's IPAQ score (informally, this represents the participants fitness level). We will be considering this as a candidate fixed effect in our model later.
 ```{r Nans}
 
 # Helper to force numeric and turn NAs/blanks into 0
@@ -130,22 +138,27 @@ data$ipaq_category[
 # vigorous_met, moderate_met, walking_met, ipa_total_met, ipaq_category
 
 # Optional quick checks:
-table(data$ipaq_category)
-summary(data$ipa_total_met)
+#table(data$ipaq_category)
+#summary(data$ipa_total_met)
 
 
 
 ```
-#### Data Filtering
 
-We are remvoing trails where the participant did not read the AI when in the AI group 
+
+## Selecting data
+
+We care to understand the relatioship between ai and accuracy as well as the relationship between exercise and accuracy. If a participant reported not using AI when they were in the AI group, we remove those specific data points.
 ```{r}
-#df <- subset(data, zoom_self != "self")
-df <- subset(data, read_ai != "No")
+df <- data[data$read_ai != "No",]
 
+nrow(df)
 ```
 
-## Establishing our DV as binary for bug detection accuracy
+
+
+
+In this step, we make a column that encodes correctness to binary outcomes (i.e., correct = 1 and inccorect = 0)
 
 ```{r}
 
@@ -159,23 +172,17 @@ df$bug_found_num <- ifelse(df$correctly_identifies_bug_scorer_2 == "Y", 1,
 
 
 
-check participant count
-
-```{r}
-#Make sure you have n=47 participants 
 
 
 
-id <- unique(df$part_id)
-id #all unique IDs
-length(id) #number of participants
-```
+## Mixed Effects Regression Analysis
 
+### Specify Candidate Fixed Effects 
 
-## Select independent variables 
+In this step, we first define the set of candidate fixed-effect terms to consider in the mixed-effects regression models. The core predictors (`exercise`, `AI`, and `sequence number`) are included in every model because they represent the primary experimental manipulations and account for trial order (i.e., potential learning or fatigue effects). 
 
+Additional covariates and motivated interactions are then considered as optional terms during model comparison. These include `project_name` (controls for differences in difficulty across programming tasks), `ipaq_category` (accounts for differences in participants' physical activity levels), `occupation` (controls for variation associated with participants' professional background.), and `zoom_self` (which indicates whether participants completed the session by self-recording or under live supervision via Zoom).
 
-## Specify candidate predictor structures for mixed model formulas
 
 ```{r}
 
@@ -185,84 +192,20 @@ length(id) #number of participants
 core_mains <- c("exercise", "ai", "seq_num")
 
 # covariates
-optional_mains <- c("project_name", "ipaq_category", "occupation")
+optional_mains <- c("project_name", "ipaq_category", "zoom_self", "occupation")
 
 # Optional interactions
 candidate_interactions <- c(
   "exercise * ai",
-  "exercise * ipaq_category",     #perhaps the effect of exericse on bug detection is mediated by participant's fitness level
-  "ai * seq_num",
-  "exercise * seq_num"
-  #"ai * has_bug",               #does AI help more in instances when a bug is present or absent
-  #"exercise * has_bug"         #does exercise help more in instances when a bug is present or absent
-  #"seq_num * has_bug"           #
+  "exercise * ipaq_category", #perhaps the effect of exericse on bug detection is mediated by participant's fitness level
+  "exercise * seq_num" #perhaps the effects of exercise changes as you solve problems
   
 )
 
 ```
 
 
-
-## Specify candidate random effect structure for mixed model forumlas
-
-```{r}
-
-random_structures <- c(
-  R01 = "(1 | part_id)", 
-  R02 = "(1 | stim_src_id)", 
-  R0  = "(1 | part_id) + (1 | stim_src_id)",                 # intercepts only
-  R1  = "(1 + ai | part_id) + (1 | stim_src_id)",            # AI slope
-  R2  = "(1 + exercise | part_id) + (1 | stim_src_id)",      # exercise slope
-  R3  = "(1 + ai + exercise | part_id) + (1 | stim_src_id)", # both slopes (correlated)
-  R3u = "(1 + ai + exercise || part_id) + (1 | stim_src_id)" # both slopes, no corr
-)
-
-```
-
-
-
-## Determine the random effect structure
-
-
-```{r}
-
-fixed_main <- "bug_found_num ~ exercise + ai + seq_num"
-
-fit_random_structures <- function(df, fixed_main, random_structures) {
-  lapply(random_structures, function(re) {
-    f <- as.formula(paste(fixed_main, "+", re))
-    print(f)
-    glmer(
-      f,
-      data = df,
-      family = binomial,
-      control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5))
-    )
-  })
-}
-
-m_rand <- fit_random_structures(df, fixed_main, random_structures)
-sapply(m_rand, AIC)
-sapply(m_rand, BIC)
-sapply(m_rand, isSingular)
-```
-Almost all trigger a 'isSingular' fit except R02. 
-The only random effect that your dataset can actually support is a random intercept for stimulus, not for participants.
-
-We are going to keep (1 | stim_src_id) (no singular fit error and lowest AIC/BIC) as our fixed random structure
-
-
-
-
-```{r }
-
-random_exprs = "(1 | stim_src_id)"
-  
-```
-
-
-
-## Create possible candidate fixed effect structures
+In this step, we now generate a plausible fixed effects structures given that we have 3 core fixed effects 
 
 ```{r}
 make_fixed_forms <- function(core_mains, optional_mains, candidate_interactions) {
@@ -354,11 +297,73 @@ fixed_forms <- make_fixed_forms(core_mains, optional_mains, candidate_interactio
 
 ```
 
+### Specify candidate random effect structures for mixed model formulas
+
+In this step, we next define a set of candidate random-effects structures for the mixed-effects regression models. These models account for the repeated-measures nature of the experiment by allowing observations from the same participant and programming task to be correlated. 
+
+We consider models with random intercepts for participants (`1 | part_id`) and programming tasks (`1 | stim_src_id`), as well as models that allow the effects of AI (`ai`) and exercise (`exercise`) to vary across participants through random slopes.
+To select an appropriate random-effects structure, we fit each candidate model using the core fixed effects (`exercise`, `ai`, and `seq_num`) and compare model fit using the Akaike Information Criterion (AIC).  BIC is also reported for transparency.
+
+
+```{r}
+
+random_structures <- c(
+  R01 = "(1 | part_id)", 
+  R02 = "(1 | stim_src_id)", 
+  R0  = "(1 | part_id) + (1 | stim_src_id)",                 # intercepts only
+  R1  = "(1 + ai | part_id) + (1 | stim_src_id)",            # AI slope
+  R2  = "(1 + exercise | part_id) + (1 | stim_src_id)",      # exercise slope
+  R3  = "(1 + ai + exercise | part_id) + (1 | stim_src_id)", # both slopes (correlated)
+  R3u = "(1 + ai + exercise || part_id) + (1 | stim_src_id)" # both slopes, no corr
+)
+
+```
+
+
+
+Checking what random effect model is best given our core fixed effects and DV
+
+
+```{r}
+
+fixed_main <- "bug_found_num ~ exercise + ai + seq_num"
+
+fit_random_structures <- function(df, fixed_main, random_structures) {
+  lapply(random_structures, function(re) {
+    f <- as.formula(paste(fixed_main, "+", re))
+    print(f)
+    glmer(
+      f,
+      data = df,
+      family = binomial,
+      control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5))
+    )
+  })
+}
+
+m_rand <- fit_random_structures(df, fixed_main, random_structures)
+sapply(m_rand, AIC)
+sapply(m_rand, BIC)
+sapply(m_rand, isSingular)
+```
+R02 is the only non-singular fit, whereas every model containing a participant random effect is singular.
+
+Based on AIC, the selected random-effects structure includes random intercepts for programming task: `(1 | stim_src_id)`.
+
+```{r }
+
+random_exprs = "(1 | stim_src_id)"
+  
+```
 
 
 
 
-Now, we combine the response variable, fixed effects, and random effects together to generate our candidate model structures.
+
+
+
+
+Now, we combine the response variable, fixed effects, and random effects together to generate our candidate model structures. We consider 96 models.
 
 ```{r}
 
@@ -390,7 +395,7 @@ We also store BIC (an alternative model selection criterion) in addition to AIC 
 if (TRUE) {
   # make an output directory for the output of all the candidate linear models
   logtime_outputdir = 
-    sprintf("%s/bug_find_correct_model_summaries_frozen_re_nohasbug", outputdir)
+    sprintf("%s/bug_find_correct_model_summaries_7_1_26", outputdir)
   mkdir(logtime_outputdir)
   
   # make an output file for the AIC and BIC of each model
@@ -465,17 +470,17 @@ if (TRUE) {
 
 ```{r}
 # read in the AIC/BIC data
-fin = sprintf("%s/bug_find_correct_model_summaries_frozen_re/metrics.csv", outputdir)
+fin = sprintf("%s/bug_find_correct_model_summaries_7_1_26/metrics.csv", outputdir)
 log_time_models_da = read_csv(fin)
 ```
 
 
 ```{r}
-head(log_time_models_da[order(log_time_models_da$AIC),], n = 10)
+head(log_time_models_da[order(log_time_models_da$AIC),], n = 5)
 ```
 
 ```{r}
-head(log_time_models_da[order(log_time_models_da$BIC),], n = 10)
+head(log_time_models_da[order(log_time_models_da$BIC),], n = 5)
 ```
 
 
@@ -493,43 +498,63 @@ cat(fB)
 ```
 
 
-
 ```{r}
-
-#df$seq_num_c <- scale(df$seq_num, scale = FALSE)
-#fA = (bug_found_num) ~ exercise + ai + seq_num_c + has_bug + exercise:seq_num_c + ai:has_bug + (1 | stim_src_id)
-
-m0 = glmer(fA, family=binomial, data=df, control = glmerControl(optimizer = "bobyqa"))
-summary(m0)
+m0 = glmer(fA, family=binomial, data=df)
+#summary(m0)
 
 ```
 
 
-
-
 ```{r}
-#fB= (bug_found_num) ~ exercise + ai + seq_num + has_bug +  exercise:seq_num +  (1 | stim_src_id)
-m1 =  glmer(fB, family=binomial, data=df, control = glmerControl(optimizer = "bobyqa"))
-summary(m1)
+m1 =  glmer(fB, family=binomial, data=df)
+#summary(m1)
 ```
 
-Since AIC and BIC disagree on which model is better, we check via an ANOVA
+
+Because AIC and BIC identify different preferred models, we perform a likelihood ratio test (LRT) to compare the competing nested models. This serves as an additional model comparison criterion for resolving the disagreement between the information criteria and selecting the model to carry forward.
 
 ```{r}
 
 anova(m0,m1)
+```
+The likelihood ratio test did not find a significant improvement in fit for Model m0 over Model m1 (p = 0.1017). We therefore selected Model m1 for subsequent analyses. 
+
+
+## Research Question 1 (Accuracy of finding bug during the exericse treatment)
+
+We next evaluate the statistical significance of each fixed effect using likelihood ratio tests. Each test compares the selected model against a nested model that excludes the predictor of interest.
+
+
+```{r}
+fC=  (bug_found_num) ~ ai + seq_num +  (1 | stim_src_id)
+fD = (bug_found_num) ~ exercise + seq_num +   (1 | stim_src_id)
+fE = (bug_found_num) ~ exercise + ai + (1 | stim_src_id)
+
+mC = glmer(fC, family=binomial, data=df)
+mD = glmer(fD, family=binomial, data=df)
+mE = glmer(fE, family=binomial, data=df)
+
+```
+
+```{r}
+
+anova(m1, mC)  # Test contribution of exercise
+anova(m1, mD)  # Test contribution of AI
+anova(m1, mE)  # Test contribution of seq_num (learning effects)
+
+```
+
+In addition, we report (R^2) values as they are reported in the paper
+
+To quantify the overall explanatory power of the mixed-effects model, we report both the marginal and conditional (R^2) values. In mixed-effects models, a single (R^2) is not sufficient because variance is explained by both the fixed effects (the experimental predictors) and the random effects (differences among participants and stimuli). The marginal (R^2) represents the proportion of variance explained by the fixed effects alone, whereas the conditional (R^2) represents the proportion of variance explained by the full model, including both fixed and random effects. Reporting both measures provides a more complete assessment of model fit and the relative contributions of the experimental manipulations and the hierarchical structure of the data.
+
+```{r}
+
+summary(m0)
 r2(m0)
 ```
 
-m1 is NOT preferred so we choose m0:  (bug_found_num) ~ exercise + ai + seq_num + has_bug + exercise:seq_num + ai:has_bug + (1 | stim_src_id)
-
-A likelihood ratio test indicated that including both interaction terms significantly improved model fit (χ²(2) = 6.72, p = .035), supporting retention of the interaction model. While neither interaction term individually reached conventional statistical significance, both showed meaningful effect sizes and added explanatory value when considered jointly.
-
-Although the AI × bug interaction did not reach conventional significance (p = .078), the direction and magnitude of the effect were consistent with a meaningful behavioral difference: when bugs were present, AI assistance improved participant accuracy by approximately 2.8×. This is supported by the model comparison, which showed that including the interaction terms significantly improved model fit (p = .035).
-
-There was a marginal interaction between exercise and trial number (p = .069), participants in the exercise condition showed performance gains across trials. This suggests that pre-task exercise may have helped sustain attention or facilitated learning across the bug-identification trials. the exercise group becomes ~1.37× more likely to be correct
-
-
+While AI is statisitically significant, we investigate this further in more detail via our `bug-accuracy-ai-correctness-analysis` where we investigate how AI correctness place a role instead of just general AI.
 
 
 

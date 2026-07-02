@@ -4,6 +4,12 @@ output: html_document
 date: "2025-12-07"
 ---
 
+
+## Introduction
+
+In this file, you find part of our results for research question 1 (specifically in regards to response time and exercise). We start this file with loading data (the same as all other files) and then delve into our main findings. Readers interested in verifying the main result in RQ1 should search for the string "Research Question 1". 
+
+
 ## Packages
 
 ```{r}
@@ -30,15 +36,17 @@ library(ggplot2)
 ```{r}
 # name the directories to read data from and write output to
 input_version = 2
-output_version = 'programming'
+output_version = 'programming-v2'
+
 
 ```
 
-make an overall output directory (model summaries, stats, etc. will all go here)
+the following code is to make an output directory
 ```{r}
 
 outputdir = sprintf("%s/../candidate-models/regression-models-%s",getwd(), output_version)
-#mkdir(outputdir) #only uncomment this if you don't already have an output directory
+mkdir(outputdir) #only uncomment this if you don't already have an output directory
+
 ```
 
 
@@ -46,21 +54,23 @@ outputdir = sprintf("%s/../candidate-models/regression-models-%s",getwd(), outpu
 
 ## Loading Data
 
+For consistency, we output the number of rows in our data which represent trials or items -- each row represents an instance where a participant answered a stimulus question.
 ```{r}
 
 input_file = sprintf("%s/../preprocessed-data/full-data-version-%d/programming-full-data.csv", getwd(), input_version)
 data <- read.csv(input_file)
 
-#showing head of data
-head(data)
+
+nrow(data)
 
 ```
 
 
-### Data Management
+## Data Management
+
+In this step, we want to calculate each participant's IPAQ score (informally, this represents the participants fitness level). We will be considering this as a candidate fixed effect in our model later.
 
 
-Computing the IPAQ score and adding it as a column to the data
 ```{r Nans}
 
 # Helper to force numeric and turn NAs/blanks into 0
@@ -132,19 +142,23 @@ data$ipaq_category[
 # vigorous_met, moderate_met, walking_met, ipa_total_met, ipaq_category
 
 # Optional quick checks:
-table(data$ipaq_category)
-summary(data$ipa_total_met)
+#table(data$ipaq_category)
+#summary(data$ipa_total_met)
 
 
 
 ```
 
-#### Filtering data to correct trials
+## Selecting Data to analyze
 
-Lets only accept the trials that led to 3.5+ scores on all categories
-(as an extra layer, lets remove people who said they didn't read the AI)
+We desire to analyze response times of "correct trials". We define "correct trials" as those in which the response received a score of 3.5 or higher on all four evaluation dimensions (accuracy, completeness, conciseness, and readability).
+We used a conservative criterion by requiring responses to exceed the threshold on every quality dimension rather than allowing high performance on one dimension to compensate for poor performance on another. 
+
+In addition, we filtered out trials in which participant reported not reading the AI output when given such output to consider.
+
+For consistency, we also display the number of rows in our dataframe after selection.
+
 ```{r}
-
 df_correct <- data |> 
   dplyr::filter( accuracy_both >= 3.5,
                 completeness_both >= 3.5,
@@ -152,24 +166,19 @@ df_correct <- data |>
                 readability_both >= 3.5
                 )
 
-#df_correct <- subset(df_correct, zoom_self != "self")
-df_correct <- subset(df_correct, read_ai != "No")
 
-head(df_correct)
+df_correct <- df_correct[df_correct$read_ai != "No",]
+
+nrow(df_correct)
 
 ```
 
-How many unique participants are left
-```{r}
 
-id <- unique(df_correct$part_id)
-id #all unique IDs
-length(id) #number of participants
-```
 
 
 ### Distribution of Response Times
 
+For consistency and for reference, we examine the distribution of response time. Since each problem was designed to be completed in less than 900 seconds, we gain confidence if our mean response time is less than that.
 
 Overall average response time
 ```{r}
@@ -178,19 +187,24 @@ print(mean_value)
 ```
 
 
-Centralizing dureciton/reaction times where not normally distrubuted so that were transformed
+In this step, we plot our response times in a histogram. Since we view a skew, we transform our data to normalize it and satisfiy the assumptions of or mixed regression analysis. We employ a `sqrt` to skew.
 ```{r}
 hist((df_correct$duration))
 hist(sqrt(df_correct$duration))
 
-#table(df_correct$exercise, df_correct$ai)
-
 ```
 
-## Select independent variables 
 
 
-## Specify candidate predictor structures for mixed model formulas
+
+
+## Mixed Effects Regression Analysis
+
+### Specify Candidate Fixed Effects 
+
+In this step, we first define the set of candidate fixed-effect terms to consider in the mixed-effects regression models. The core predictors (`exercise`, `AI`, and `sequence number`) are included in every model because they represent the primary experimental manipulations and account for trial order (i.e., potential learning or fatigue effects). 
+
+Additional covariates and motivated interactions are then considered as optional terms during model comparison. These include `project_name` (controls for differences in difficulty across programming tasks), `ipaq_category` (accounts for differences in participants' physical activity levels), `occupation` (controls for variation associated with participants' professional background.), and `zoom_self` (which indicates whether participants completed the session by self-recording or under live supervision via Zoom).
 
 ```{r}
 
@@ -198,22 +212,18 @@ hist(sqrt(df_correct$duration))
 core_mains <- c("exercise", "ai", "seq_num")
 
 # covariates
-optional_mains <- c("project_name", "ipaq_category", "occupation")
+optional_mains <- c("project_name", "ipaq_category", "occupation", "zoom_self")
 
 # Optional interactions
 candidate_interactions <- c(
   "exercise * ai",
   "exercise * ipaq_category",
-  # "ai * ipaq_category"       
-  "ai * seq_num",
   "exercise * seq_num" # learning-curve moderation
-  #"ai * has_bug",
-  #"exercise * has_bug"
 )
 ```
 
 
-Geneate a plausible fixed effects structures given that we want to keep 3 core fixed effects but what to extend it
+In this step, we now generate a plausible fixed effects structures given that we want to keep 3 core fixed effects but would consider an extended model.
 ```{r}
 make_fixed_forms <- function(core_mains, optional_mains, candidate_interactions) {
   fixed_forms <- character(0)
@@ -291,7 +301,13 @@ fixed_effects <- fixed_forms
 
 
 
-## Specify candidate random effect structures for mixed model formulas
+### Specify candidate random effect structures for mixed model formulas
+
+In this step, we next define a set of candidate random-effects structures for the mixed-effects regression models. These models account for the repeated-measures nature of the experiment by allowing observations from the same participant and programming task to be correlated. 
+
+We consider models with random intercepts for participants (`1 | part_id`) and programming tasks (`1 | stim_src_id`), as well as models that allow the effects of AI (`ai`) and exercise (`exercise`) to vary across participants through random slopes.
+To select an appropriate random-effects structure, we fit each candidate model using the core fixed effects (`exercise`, `ai`, and `seq_num`) and compare model fit using the Akaike Information Criterion (AIC).  BIC is also reported for transparency.
+
 
 ```{r}
 
@@ -376,7 +392,7 @@ cat("\nBest random structure by BIC:", best_by_bic, "\n")
 
 ```
 
-
+Based on AIC, the selected random-effects structure includes random intercepts for both participant and programming task: `(1 | part_id) + (1 | stim_src_id)`.
 
 ```{r}
 
@@ -386,7 +402,7 @@ random_exprs = "(1 | part_id) + (1 | stim_src_id)"    #for reaction_time
 
 
 
-Now, we combine the response variable, fixed effects, and random effects together to generate our candidate model structures.
+Now, we combine the response variable, fixed effects, and random effects together to generate our candidate model structures. We consider 96 models.
 
 ```{r}
 loglinear_formulae = c()
@@ -416,7 +432,7 @@ We also store BIC (an alternative model selection criterion) in addition to AIC 
 if (TRUE) {
   # make an output directory for the output of all the candidate linear models
   logtime_outputdir = 
-    sprintf("%s/sqrt_time_model_correct_summaries_only_frozen_re", outputdir)
+    sprintf("%s/sqrt_time_model_correct_summaries_only_7_1_26", outputdir)
   mkdir(logtime_outputdir)
   
   # make an output file for the AIC and BIC of each model
@@ -480,14 +496,14 @@ if (TRUE) {
 
 ```{r}
 # read in the AIC/BIC data
-fin = sprintf("%s/sqrt_time_model_correct_summaries_only_frozen_re/metrics.csv", outputdir)
+fin = sprintf("%s/sqrt_time_model_correct_summaries_only_6_29_26/metrics.csv", outputdir)
 log_time_models_da = read_csv(fin)
 ```
 ```{r}
-head(log_time_models_da[order(log_time_models_da$AIC),], n = 10)
+head(log_time_models_da[order(log_time_models_da$AIC),], n = 3)
 ```
 ```{r}
-head(log_time_models_da[order(log_time_models_da$BIC),], n = 10)
+head(log_time_models_da[order(log_time_models_da$BIC),], n = 3)
 ```
 
 
@@ -495,11 +511,10 @@ head(log_time_models_da[order(log_time_models_da$BIC),], n = 10)
 ```{r}
 fA = log_time_models_da[order(log_time_models_da$AIC),]$formula[[1]]
 fB = log_time_models_da[order(log_time_models_da$BIC),]$formula[[1]]
-cat(fB)
 ```
 
- 
-Both AIC and BIC favor the same model
+We note that it is useful that AIC and BIC agree on the top ranked model (#1). When AIC and BIC agree on the highest-ranked model, we treat this as additional evidence that the selected model provides a robust balance between fit and complexity. In such cases, we retain the top-ranked model for subsequent analyses.
+
 
 ```{r}
 m0 = lmer(fA, data=df_correct, REML=FALSE)
@@ -507,57 +522,14 @@ summary(m0)
 ```
 
 
-Both AIC and BIC agree on the best model =  sqrt(duration) ~ exercise + ai + seq_num + (1 | part_id) + (1 | stim_src_id)
+## Research Question 1 (Response time during the exericse treatment)
 
-
-
-As an aside, we are curious if complexity metrics may explain different response times. 
+We next evaluate the statistical significance of each fixed effect using likelihood ratio tests. Each test compares the selected model against a nested model that excludes the predictor of interest.
 
 ```{r}
-# does adding halstead_volume improve model fit
-df_correct$halstead_z <- scale(df_correct$halstead_volume) #we need to rescale it
-f_hal =  sqrt(duration) ~ exercise + ai + seq_num + halstead_z + (1 | part_id) + (1 | stim_src_id)
-m_hal = lmer(f_hal, data=df_correct, REML=FALSE)
-
-anova(m0, m_hal)
-
-
-```
-Halstead Volume does NOT significantly improve the response-time model.
-
-
-```{r}
-# does adding halstead_volume improve model fit
-df_correct$cyclomatic_compl_z <- scale(df_correct$cyclomatic_compl) #we need to rescale it
-f_cyc =  sqrt(duration) ~ exercise + ai + seq_num + cyclomatic_compl_z + (1 | part_id) + (1 | stim_src_id)
-m_cyc = lmer(f_cyc, data=df_correct, REML=FALSE)
-
-anova(m0, m_cyc)
-
-
-```
-
-Cyclomatic complexity significantly improved model fit for response time.
-
-cyclomatic_compl  Estimate = -0.18544   t = -2.132 (Participants responded faster on code with higher cyclomatic complexity.)
-
-
-exerciseTrue        = +1.90881
-cyclomatic_compl    = -0.18544
-
-1.98 / 0.18 = 10.3
-(Exercising produced a response-time cost comparable in magnitude to the benefit of simplifying a code snippet by roughly 10 units of cyclomatic complexity.)
-
-
-
-
-
-We now look at our chosen model in depth and determine the p-values of the predictors
-
-```{r}
-fC=  sqrt(duration) ~ ai + seq_num +  cyclomatic_compl + (1 | part_id) + (1 | stim_src_id)
-fD = sqrt(duration) ~ exercise + seq_num +  cyclomatic_compl + (1 | part_id) + (1 | stim_src_id)
-fE = sqrt(duration) ~ exercise + ai +  cyclomatic_compl + (1 | part_id) + (1 | stim_src_id)
+fC=  sqrt(duration) ~ ai + seq_num + (1 | part_id) + (1 | stim_src_id)
+fD = sqrt(duration) ~ exercise + seq_num +   (1 | part_id) + (1 | stim_src_id)
+fE = sqrt(duration) ~ exercise + ai +   (1 | part_id) + (1 | stim_src_id)
 
 mC = lmer(fC, data=df_correct, REML=FALSE)
 mD = lmer(fD, data=df_correct, REML=FALSE)
@@ -567,22 +539,20 @@ mE = lmer(fE, data=df_correct, REML=FALSE)
 
 ```{r}
 
-anova(m_cyc ,mC) # Does model favor exercise?
-anova(m_cyc ,mD) # Does model favor AI?
-anova(m_cyc ,mE) # Does model favor Seq_num (learning effects)
+anova(m0, mC)  # Test contribution of exercise
+anova(m0, mD)  # Test contribution of AI
+anova(m0, mE)  # Test contribution of seq_num (learning effects)
+
 ```
 
-m0: sqrt(duration) ~ exercise + ai + seq_num + (1 | part_id) + (1 | stim_src_id)
-Adding exercise p = 0.0006 (made people slower)
-Adding AI p = 0.2366 (no difference - slightly got faster but not significant)
-Adding seq_num p < 0.001 (people got faster as the time went on)
-
-
+To quantify the overall explanatory power of the mixed-effects model, we report both the marginal and conditional (R^2) values. In mixed-effects models, a single (R^2) is not sufficient because variance is explained by both the fixed effects (the experimental predictors) and the random effects (differences among participants and stimuli). The marginal (R^2) represents the proportion of variance explained by the fixed effects alone, whereas the conditional (R^2) represents the proportion of variance explained by the full model, including both fixed and random effects. Reporting both measures provides a more complete assessment of model fit and the relative contributions of the experimental manipulations and the hierarchical structure of the data.
 
 ```{r}
-summary(m_cyc)
-r2(m_cyc)
+summary(m0)
+r2(m0)
 ```
+
+
 
 
 

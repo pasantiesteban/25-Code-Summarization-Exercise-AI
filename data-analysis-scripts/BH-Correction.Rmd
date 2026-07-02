@@ -3,38 +3,97 @@ title: "BH-Correction"
 output: html_document
 date: "2026-04-24"
 ---
+## Introduction
+We exploy a family-wise Benjamini–Hochberg procedure to control the false discovery rate. We apply the Benjamini–Hochberg procedure per research question. 
 
-# Benjamini–Hochberg procedure to control the false discovery rate
 
+### Research Question 1
+
+```{r}
+
+#Research Question 1
+pvals <- c(
+  # Bug detection accuracy
+  bug_exercise = 0.398,   #Beta = -0.97659
+  
+  # Summary Quality: Accuracy
+  acc_exercise = 0.00133,  #Beta = -2.5042
+  acc_ex_seq = 0.00853,   #Beta = 0.4827 
+
+  # Summary Quality: Completeness
+  comp_exercise = 0.2617, #Beta = 0.26720  
+
+  # Summary Quality: Conciseness
+  conc_exercise = 0.01005, #Beta = -0.84958 
+
+  # Summary Quality: Readability
+  read_exercise =  0.2311,    #Beta = -0.97659
+
+  # Response Time
+  time_exercise =  0.01286  #Beta = 1.8823
+)
+
+pvals_bh <- p.adjust(pvals, method = "BH")
+
+results <- data.frame(
+  test = names(pvals),
+  p_raw = pvals,
+  p_bh = pvals_bh,
+  significant_0.05 = pvals_bh < 0.05
+)
+
+results[order(results$p_bh), ]
+
+
+```
+
+
+### Research Question 2
+
+```{r}
+
+#Research Question 2
+pvals <- c(
+  
+  # Bug detection accuracy (general)
+  bug_ai = 0.0144, #beta = 0.73836 
+  
+  # Summary Quality: Accuracy
+  acc_ai = 0.78370,     #Beta = 0.1219 
+
+  # Summary Quality: Completeness
+  comp_ai = 0.0386,     #Beta = 0.49839 
+
+  # Summary Quality: Conciseness
+  conc_ai = 0.00237,     #Beta = 1.01694 
+
+  # Summary Quality: Readability
+  read_ai =  0.9097 , #Beta = -0.09577  
+
+  # Response Time
+  time_ai = 0.867 #beta = 0.1124
+)
+
+pvals_bh <- p.adjust(pvals, method = "BH")
+
+results <- data.frame(
+  test = names(pvals),
+  p_raw = pvals,
+  p_bh = pvals_bh,
+  significant_0.05 = pvals_bh < 0.05
+)
+
+results[order(results$p_bh), ]
+
+
+```
+
+### Research question 3
 
 ```{r BH}
 pvals <- c(
-  # Bug detection
-  bug_exercise = 0.398,
-  bug_ai = 1.61e-06,
-
-  # Accuracy
-  acc_exercise = 0.0014,
-  acc_ai = 0.742,
-  acc_ex_ai = 0.096,
-  acc_ex_seq = 0.009, #exploratory
-
-  # Completeness
-  comp_exercise = 0.2617,
-  comp_ai = 0.0386,
-
-  # Conciseness
-  conc_exercise = 0.01005,
-  conc_ai = 0.00237,
-
-  # Readability
-  read_exercise = 0.2051,
-  read_ai = 0.1679,
-  read_ex_ai = 0.1211,
-
-  # Time
-  time_exercise = 0.0006,
-  time_ai = 0.2366
+  # Bug detection accuracy (ai only to be specific)
+  bug_ai_only = 1.61e-06 #beta = -2.5147  
 )
 
 pvals_bh <- p.adjust(pvals, method = "BH")
