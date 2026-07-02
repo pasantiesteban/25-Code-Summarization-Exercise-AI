@@ -1,4 +1,5 @@
 # Sweat the Details: Exercise Breaks and AI Assistance in Code Summarization
+TSE 2026 Submission, Authors: Amy Wei, Priscila Santiesteban, Westley Weimer
 
 ## Purpose:
 
@@ -85,5 +86,7 @@ This is a replication package for our submission. We provide the stimuli (code f
 
 - `quotes/Summaries` from Participants - Mapping between P# and part_id.csv
   - maps quotes in the paper to participant ids
-
+ 
+## Questions
+Please email any of the authors if you have questions: Amy (weia@umich.edu), Priscila (pasanti@umich.edu), Wes (weimerw@umich.edu)
 
