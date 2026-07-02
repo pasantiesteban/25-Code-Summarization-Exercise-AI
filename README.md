@@ -61,17 +61,17 @@ This is a replication package for our submission. We provide the stimuli (code f
 - R scripts
   - List of scripts
     - `accuracy-bug-analysis`
-      - bug detection accuary
+      - bug detection accuary (contains some of the findings for RQ1)
     - `accuracy-summary-analysis`
-      - summary quality
+      - summary quality (contains some of the findings for RQ1 and RQ2)
         - accuracy
         - completeness
         - conciseness
         - readability
-    - `bug-accuracy-ai-correctness-analysis`
-      - bug detection accuracy for the AI condition only
+    - `bug-accuracy-ai-correctness-analysis` 
+      - bug detection accuracy for the AI condition only (contains some of the findings for RQ3)
     - `RT-analysis`
-      - response time for good quality summaries
+      - response time for good quality summaries (contains some of the findings for RQ1 and RQ2)
   - To view our scripts already run with the result, use the html files
   - In order to run the R scripts, the `candidate-models/regression-models-programming.zip` file must be unzipped
 
